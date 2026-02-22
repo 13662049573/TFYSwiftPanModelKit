@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Swift-5.0-orange.svg" alt="Swift 5.0"/>
   <img src="https://img.shields.io/badge/iOS-15.0%2B-blue.svg" alt="iOS 15.0+"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT"/>
+  <img src="https://img.shields.io/badge/SPM-compatible-brightgreen.svg" alt="SPM"/>
   <img src="https://img.shields.io/badge/CocoaPods-compatible-red.svg" alt="CocoaPods"/>
   <img src="https://img.shields.io/badge/version-1.0.0-brightgreen.svg" alt="version"/>
 </p>
@@ -57,6 +58,31 @@ pod 'TFYSwiftPanModelKit'
 # 或按需安装
 pod 'TFYSwiftPanModelKit/popController'  # 仅 PanModal
 pod 'TFYSwiftPanModelKit/popView'        # 仅 PopupView
+```
+
+### Swift Package Manager
+
+在 Xcode 中：**File → Add Package Dependencies**，输入仓库地址：
+
+```
+https://github.com/13662049573/TFYSwiftPanModelKit.git
+```
+
+或在 `Package.swift` 中添加依赖：
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.0.0")
+]
+```
+
+然后在 target 中引入：
+
+```swift
+.target(
+    name: "YourApp",
+    dependencies: ["TFYSwiftPanModelKit"]
+)
 ```
 
 ### 手动安装
