@@ -23,5 +23,10 @@ let package = Package(
                 "popView"
             ]
         ),
+        .testTarget(
+            name: "TFYSwiftPanModelKitTests",
+            dependencies: ["TFYSwiftPanModelKit"],
+            path: "Tests/TFYSwiftPanModelKitTests"
+        ),
     ]
 )

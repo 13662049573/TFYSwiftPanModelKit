@@ -9,12 +9,18 @@ import UIKit
 
 public enum TFYSwiftWindowHelper {
 
-    /// 当前活跃的 key window
+    /// 当前活跃的 key window（带回退）
     public static var activeWindow: UIWindow? {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first { $0.activationState == .foregroundActive }?
-            .windows.first { $0.isKeyWindow }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        if let key = scenes.first(where: { $0.activationState == .foregroundActive })?
+            .windows.first(where: { $0.isKeyWindow }) {
+            return key
+        }
+        for scene in scenes {
+            if let window = scene.windows.first(where: { $0.isKeyWindow }) { return window }
+            if let window = scene.windows.first(where: { !$0.isHidden }) { return window }
+        }
+        return nil
     }
 
     /// 当前安全区域 insets

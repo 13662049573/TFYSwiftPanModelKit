@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
 
   spec.name         = "TFYSwiftPanModelKit"
-  spec.version      = "1.0.0"
+  spec.version      = "1.0.1"
   spec.summary      = "Swift PanModal 弹窗组件库，支持半屏/全屏弹窗、PopupView 动画弹窗、BottomSheet 等"
 
   spec.description  = <<-DESC
@@ -42,5 +42,8 @@ Pod::Spec.new do |spec|
     pv.source_files = "TFYSwiftPanModelKit/TFYSwiftPanModel/popView/**/*.swift"
     pv.dependency "TFYSwiftPanModelKit/Tools"
   end
+
+  # 默认安装全部模块
+  spec.default_subspecs = 'Tools', 'popController', 'popView'
 
 end

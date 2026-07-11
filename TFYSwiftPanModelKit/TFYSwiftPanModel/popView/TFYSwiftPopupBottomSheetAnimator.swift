@@ -208,7 +208,8 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
                     hc.constant = configuration.defaultHeight
                 }
             }
-            (pv.superview ?? pv).layoutIfNeeded()
+            pv.setNeedsLayout()
+            pv.layoutIfNeeded()
         case .ended, .cancelled:
             isDragging = false
             let currentOffset = bc.constant

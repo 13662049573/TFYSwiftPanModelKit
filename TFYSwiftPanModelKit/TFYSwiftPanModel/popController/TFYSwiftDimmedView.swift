@@ -82,7 +82,7 @@ public final class TFYSwiftDimmedView: UIView {
         isBlurMode = maxBlurRadius > 0 || backgroundConfig.visualEffect != nil
         addGestureRecognizer(tapGesture)
         isAccessibilityElement = true
-        accessibilityLabel = "弹窗背景遮罩"
+        accessibilityLabel = NSLocalizedString("Dismiss background", comment: "PanModal dimmed background")
         accessibilityTraits = .button
         setupView()
     }
@@ -129,6 +129,8 @@ public final class TFYSwiftDimmedView: UIView {
         percent = currentPercent
     }
 
+    private var lastBlurDisplayPercent: CGFloat = -1
+
     private func updateAlpha() {
         var alpha: CGFloat = 0
         var blurRadius: CGFloat = 0
@@ -150,7 +152,12 @@ public final class TFYSwiftDimmedView: UIView {
             if backgroundConfig.visualEffect != nil {
                 blurView.alpha = alpha
                 blurView.isHidden = alpha <= 0
-                blurView.setNeedsDisplay()
+                // 拖拽过程中节流 setNeedsDisplay，降低自定义 blur 开销
+                let quantized = (percent * 20).rounded() / 20
+                if dimState != .percent || abs(quantized - lastBlurDisplayPercent) >= 0.05 {
+                    lastBlurDisplayPercent = quantized
+                    blurView.setNeedsDisplay()
+                }
             } else {
                 blurView.blurRadius = blurRadius
                 blurView.colorTintAlpha = blurTintAlpha

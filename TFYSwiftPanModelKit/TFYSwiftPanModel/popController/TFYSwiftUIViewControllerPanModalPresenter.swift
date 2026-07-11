@@ -9,6 +9,7 @@ import UIKit
 import ObjectiveC
 
 private nonisolated(unsafe) var panModalPresentationDelegateKey: UInt8 = 0
+private nonisolated(unsafe) var panModalFrequentTapPreventionKey: UInt8 = 0
 
 extension UIViewController: TFYSwiftPanModalPresenterProtocol {
 
@@ -25,6 +26,16 @@ extension UIViewController: TFYSwiftPanModalPresenterProtocol {
         }
     }
 
+    /// Present 路径持久防连点实例（跨多次 presentPanModal 生效）
+    private var panModalPresentFrequentTapPrevention: TFYSwiftPanModalFrequentTapPrevention {
+        if let existing = objc_getAssociatedObject(self, &panModalFrequentTapPreventionKey) as? TFYSwiftPanModalFrequentTapPrevention {
+            return existing
+        }
+        let prevention = TFYSwiftPanModalFrequentTapPrevention(preventionInterval: 1)
+        objc_setAssociatedObject(self, &panModalFrequentTapPreventionKey, prevention, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        return prevention
+    }
+
     public func presentPanModal(_ viewControllerToPresent: UIViewController & TFYSwiftPanModalPresentable, sourceView: UIView?, sourceRect: CGRect) {
         presentPanModal(viewControllerToPresent, sourceView: sourceView, sourceRect: sourceRect, completion: nil)
     }
@@ -38,7 +49,8 @@ extension UIViewController: TFYSwiftPanModalPresenterProtocol {
         }
 
         let interval = viewControllerToPresent.frequentTapPreventionInterval()
-        let prevention = TFYSwiftPanModalFrequentTapPrevention.prevention(withInterval: interval)
+        let prevention = panModalPresentFrequentTapPrevention
+        prevention.preventionInterval = interval
         prevention.enabled = viewControllerToPresent.shouldPreventFrequentTapping()
         if !prevention.canExecute() {
             if viewControllerToPresent.shouldShowFrequentTapPreventionHint() {

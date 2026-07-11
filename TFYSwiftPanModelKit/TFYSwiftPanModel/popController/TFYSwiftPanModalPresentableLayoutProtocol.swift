@@ -27,21 +27,11 @@ extension UIViewController: TFYSwiftPanModalPresentableLayoutProtocol {
     }
 
     public var topLayoutOffset: CGFloat {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let ws = scene as? UIWindowScene, ws.activationState == .foregroundActive,
-                  let window = ws.windows.first else { continue }
-            return window.safeAreaInsets.top
-        }
-        return 0
+        TFYSwiftWindowHelper.safeAreaInsets.top
     }
 
     public var bottomLayoutOffset: CGFloat {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let ws = scene as? UIWindowScene, ws.activationState == .foregroundActive,
-                  let window = ws.windows.first else { continue }
-            return window.safeAreaInsets.bottom
-        }
-        return 0
+        TFYSwiftWindowHelper.safeAreaInsets.bottom
     }
 
     public var shortFormYPos: CGFloat {
@@ -94,17 +84,15 @@ extension UIViewController: TFYSwiftPanModalPresentableLayoutProtocol {
 
     func topMarginFromPanModalHeight(_ panModalHeight: PanModalHeight) -> CGFloat {
         guard view != nil else { return 0 }
-        switch panModalHeight.type {
-        case .max: return 0
-        case .topInset: return panModalHeight.height
-        case .content: return bottomYPos - (panModalHeight.height + bottomLayoutOffset)
-        case .contentIgnoringSafeArea: return bottomYPos - panModalHeight.height
-        case .intrinsic:
-            view?.layoutIfNeeded()
-            let w = (panPresentedVC?.containerView?.bounds.width ?? TFYSwiftWindowHelper.screenWidth)
+        return TFYSwiftPanModalLayoutHelper.topMargin(
+            for: panModalHeight,
+            bottomYPos: bottomYPos,
+            bottomLayoutOffset: bottomLayoutOffset
+        ) {
+            self.view?.layoutIfNeeded()
+            let w = (self.panPresentedVC?.containerView?.bounds.width ?? TFYSwiftWindowHelper.screenWidth)
             let targetSize = CGSize(width: w, height: UIView.layoutFittingCompressedSize.height)
-            let height = view?.systemLayoutSizeFitting(targetSize).height ?? 0
-            return bottomYPos - (height + bottomLayoutOffset)
+            return self.view?.systemLayoutSizeFitting(targetSize).height ?? 0
         }
     }
 }

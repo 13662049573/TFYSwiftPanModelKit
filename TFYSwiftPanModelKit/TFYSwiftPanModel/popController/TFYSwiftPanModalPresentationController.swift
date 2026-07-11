@@ -103,6 +103,13 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
         snapToYPos(yPos, animated: animated)
         currentPresentationState = state
         presentable.didChangeTransition(to: state)
+        let announcement: String
+        switch state {
+        case .short: announcement = NSLocalizedString("Sheet collapsed", comment: "PanModal short state")
+        case .medium: announcement = NSLocalizedString("Sheet medium height", comment: "PanModal medium state")
+        case .long: announcement = NSLocalizedString("Sheet expanded", comment: "PanModal long state")
+        }
+        UIAccessibility.post(notification: .announcement, argument: announcement)
     }
 
     public func setScrollableContentOffset(_ offset: CGPoint, animated: Bool) {
@@ -162,6 +169,7 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
         } else {
             containerView.addGestureRecognizer(handler.panGestureRecognizer)
         }
+        handler.attachScreenEdgeGestureIfNeeded(to: containerView)
 
         // 5. 背景动画
         if let coordinator = presentedViewController.transitionCoordinator {
@@ -269,25 +277,19 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
 
     private func updateDragIndicatorViewFrame() {
         guard let ind = dragIndicatorView else { return }
-        let sz = ind.indicatorSize()
-        ind.frame = CGRect(x: (panContainerView.panWidth - sz.width) / 2,
-                           y: -PanModalIndicatorConstants.yOffset - sz.height,
-                           width: sz.width, height: sz.height)
+        ind.frame = TFYSwiftPanModalLayoutHelper.dragIndicatorFrame(
+            containerWidth: panContainerView.panWidth,
+            indicatorSize: ind.indicatorSize()
+        )
     }
 
     private func updateRoundedCorners() {
         let contentSubview = panContainerView.contentView
-        if presentable.shouldRoundTopCorners() {
-            let radius = presentable.cornerRadius()
-            let path = UIBezierPath(roundedRect: contentSubview.bounds,
-                                    byRoundingCorners: [.topLeft, .topRight],
-                                    cornerRadii: CGSize(width: radius, height: radius))
-            let mask = CAShapeLayer()
-            mask.path = path.cgPath
-            contentSubview.layer.mask = mask
-        } else {
-            contentSubview.layer.mask = nil
-        }
+        TFYSwiftPanModalLayoutHelper.applyTopRoundedCorners(
+            to: contentSubview,
+            radius: presentable.cornerRadius(),
+            enabled: presentable.shouldRoundTopCorners()
+        )
     }
 
     private func snapToYPos(_ yPos: CGFloat, animated: Bool) {
@@ -323,6 +325,9 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
     public func currentHandlerPresentationState() -> PresentationState { currentPresentationState }
 
     public func dismiss(_ isInteractive: Bool, mode: PanModalInteractiveMode) {
+        if mode == .dragDown || mode == .sideslip {
+            performPresentingVCAnimationIfNeeded()
+        }
         if isInteractive {
             presentationDelegate?.interactive = true
             presentationDelegate?.interactiveMode = mode
@@ -330,14 +335,49 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
         presentedViewController.dismiss(animated: true)
     }
 
+    public func updateInteractiveTransition(percent: CGFloat) {
+        presentationDelegate?.interactiveDismissalAnimator.update(percent)
+    }
+
     public func cancelInteractiveTransition() {
         presentationDelegate?.interactive = false
         presentationDelegate?.interactiveDismissalAnimator.cancel()
+        panContainerView.transform = .identity
+        presentedViewController.view.transform = .identity
     }
 
     public func finishInteractiveTransition() {
         presentationDelegate?.interactive = false
         presentationDelegate?.interactiveDismissalAnimator.finish()
+    }
+
+    private func performPresentingVCAnimationIfNeeded() {
+        let presenting = presentingViewController
+        let duration = presentable.dismissalDuration()
+        switch presentable.presentingVCAnimationStyle() {
+        case .none:
+            break
+        case .pageSheet:
+            UIView.animate(withDuration: duration, delay: 0, options: .curveEaseInOut) {
+                presenting.view.alpha = 0
+            }
+        case .shoppingCart:
+            UIView.animate(withDuration: duration, delay: 0, options: .curveEaseIn) {
+                presenting.view.transform = CGAffineTransform(
+                    translationX: 0,
+                    y: presenting.view.bounds.height
+                )
+            }
+        case .custom:
+            guard let customAnimator = presentable.customPresentingVCAnimation() else { break }
+            let context = TFYSwiftPresentingViewControllerContext(
+                containerView: presenting.view.superview ?? presenting.view,
+                presenting: presenting,
+                presented: presentedViewController,
+                duration: duration
+            )
+            customAnimator.dismissTransition(context: context)
+        }
     }
 
     // MARK: - TFYSwiftPanModalPresentableHandlerDataSource
@@ -350,5 +390,9 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
         let y = panContainerView.frame.minY
         return !isPresentedViewAnimating && handler.extendsPanScrolling &&
             (y <= handler.anchoredYPosition || y.isNearlyEqual(to: handler.anchoredYPosition))
+    }
+
+    public func isPresentedControllerInteractive() -> Bool {
+        presentationDelegate?.interactive ?? false
     }
 }

@@ -16,6 +16,7 @@ final class ViewController: UITableViewController {
             ("全屏弹窗 (Long)", #selector(showLong)),
             ("带 ScrollView 列表弹窗", #selector(showScrollable)),
             ("自定义背景+圆角+阴影", #selector(showCustomStyle)),
+            ("边缘滑动关闭", #selector(showEdgeInteractive)),
         ]),
         ("PanModal - View 弹窗 (无需 VC)", [
             ("View 弹窗展示", #selector(showContentView)),
@@ -36,6 +37,15 @@ final class ViewController: UITableViewController {
         ]),
         ("PopupView - 底部面板 (BottomSheet)", [
             ("BottomSheet (可拖拽)", #selector(showBottomSheet)),
+        ]),
+        ("PopupView - 高级功能", [
+            ("配置化弹窗 (模糊背景)", #selector(showConfiguredPopup)),
+            ("优先级队列弹窗", #selector(showPriorityPopup)),
+            ("优先级替换 (High→Urgent)", #selector(showPriorityReplace)),
+            ("不可关闭弹窗 (代码关闭)", #selector(showNonDismissiblePopup)),
+            ("拖拽/滑动关闭弹窗", #selector(showDragSwipeDismissPopup)),
+            ("暗色模式跟随验证", #selector(showDarkModePopup)),
+            ("方向动画 (Upward)", #selector(showUpwardPopup)),
         ]),
     ]
 
@@ -68,6 +78,7 @@ final class ViewController: UITableViewController {
     @objc private func showLong() { presentPanModal(DemoPanModalVC(mode: .long)) }
     @objc private func showScrollable() { presentPanModal(DemoScrollableVC()) }
     @objc private func showCustomStyle() { presentPanModal(DemoCustomStyleVC()) }
+    @objc private func showEdgeInteractive() { presentPanModal(DemoEdgeInteractiveVC()) }
 
     // MARK: - PanModal ContentView
     @objc private func showContentView() {
@@ -123,7 +134,226 @@ final class ViewController: UITableViewController {
         popup.show(in: window, animator: animator, animated: true)
     }
 
+    @objc private func showConfiguredPopup() {
+        let config = TFYSwiftPopupViewConfiguration()
+        config.backgroundStyle = .blur
+        config.blurStyle = .systemMaterialDark
+        config.cornerRadius = 20
+        config.enableHapticFeedback = true
+        config.dismissOnBackgroundTap = true
+
+        let animator = TFYSwiftPopupSpringAnimator()
+        let center = TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 220)
+        animator.layout = TFYSwiftPopupAnimatorLayout.center(center)
+
+        let popup = makeCenterPopupContent()
+        popup.show(in: view.window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showPriorityPopup() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupViewConfiguration()
+        config.enablePriorityManagement = true
+        config.priority = .high
+        config.priorityStrategy = .queue
+        config.enableHapticFeedback = true
+
+        let animator = TFYSwiftPopupFadeInOutAnimator()
+        let center = TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 280, height: 180)
+        animator.layout = TFYSwiftPopupAnimatorLayout.center(center)
+
+        let popup = TFYSwiftPopupView(frame: CGRect(x: 0, y: 0, width: 280, height: 180))
+        popup.backgroundColor = .systemBackground
+        popup.layer.cornerRadius = 16
+        let label = UILabel()
+        label.text = "高优先级弹窗\n(队列管理)"
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: popup.centerYAnchor),
+        ])
+        popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showPriorityReplace() {
+        guard let window = view.window else { return }
+
+        let lowConfig = TFYSwiftPopupViewConfiguration()
+        lowConfig.enablePriorityManagement = true
+        lowConfig.priority = .low
+        lowConfig.priorityStrategy = .queue
+        lowConfig.canBeReplacedByHigherPriority = true
+        lowConfig.dismissOnBackgroundTap = false
+
+        let lowAnimator = TFYSwiftPopupFadeInOutAnimator()
+        lowAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
+            TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 280, height: 160)
+        )
+        let lowPopup = makeLabeledPopup(size: CGSize(width: 280, height: 160), text: "低优先级\n将被替换")
+        lowPopup.show(in: window, animator: lowAnimator, configuration: lowConfig, animated: true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let highConfig = TFYSwiftPopupViewConfiguration()
+            highConfig.enablePriorityManagement = true
+            highConfig.priority = .urgent
+            highConfig.priorityStrategy = .queue
+            highConfig.canBeReplacedByHigherPriority = true
+
+            let highAnimator = TFYSwiftPopupSpringAnimator()
+            highAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
+                TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 180)
+            )
+            let highPopup = self.makeLabeledPopup(size: CGSize(width: 300, height: 180), text: "Urgent 优先级\n已替换低优先级")
+            highPopup.show(in: window, animator: highAnimator, configuration: highConfig, animated: true)
+        }
+    }
+
+    @objc private func showNonDismissiblePopup() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupViewConfiguration()
+        config.isDismissible = false
+        config.dismissOnBackgroundTap = false
+        config.enableDragToDismiss = false
+        config.enableSwipeToDismiss = false
+        config.cornerRadius = 16
+
+        let animator = TFYSwiftPopupZoomInOutAnimator()
+        animator.layout = TFYSwiftPopupAnimatorLayout.center(
+            TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 220)
+        )
+
+        let popup = TFYSwiftPopupView(frame: CGRect(x: 0, y: 0, width: 300, height: 220))
+        popup.backgroundColor = .systemBackground
+        popup.layer.cornerRadius = 16
+
+        let label = UILabel()
+        label.text = "不可手势关闭\n点击按钮以代码关闭"
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(label)
+
+        let btn = UIButton(type: .system)
+        btn.setTitle("代码关闭", for: .normal)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(btn)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: popup.centerYAnchor, constant: -20),
+            btn.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            btn.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16),
+        ])
+        btn.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
+        popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showDragSwipeDismissPopup() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupViewConfiguration()
+        config.enableDragToDismiss = true
+        config.enableSwipeToDismiss = true
+        config.dragDismissThreshold = 0.25
+        config.cornerRadius = 16
+        config.backgroundStyle = .solidColor
+
+        let animator = TFYSwiftPopupBounceAnimator()
+        animator.layout = TFYSwiftPopupAnimatorLayout.center(
+            TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 200)
+        )
+        let popup = makeLabeledPopup(size: CGSize(width: 300, height: 200), text: "向下拖拽或左右滑动关闭")
+        popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showDarkModePopup() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupViewConfiguration()
+        config.theme = .default
+        config.backgroundStyle = .blur
+        config.cornerRadius = 16
+        config.enableAccessibility = true
+
+        let animator = TFYSwiftPopupSpringAnimator()
+        animator.layout = TFYSwiftPopupAnimatorLayout.center(
+            TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 240)
+        )
+
+        let popup = TFYSwiftPopupView(frame: CGRect(x: 0, y: 0, width: 300, height: 240))
+        popup.backgroundColor = .systemBackground
+        popup.layer.cornerRadius = 16
+
+        let label = UILabel()
+        label.text = "主题跟随系统\n切换 Control Center 外观后\n弹窗 blur/背景会刷新"
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(label)
+
+        let toggle = UIButton(type: .system)
+        toggle.setTitle("切换界面外观", for: .normal)
+        toggle.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(toggle)
+
+        let close = UIButton(type: .system)
+        close.setTitle("关闭", for: .normal)
+        close.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(close)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            label.topAnchor.constraint(equalTo: popup.topAnchor, constant: 36),
+            toggle.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            toggle.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 20),
+            close.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            close.topAnchor.constraint(equalTo: toggle.bottomAnchor, constant: 12),
+        ])
+
+        toggle.addAction(UIAction { [weak self] _ in
+            guard let window = self?.view.window else { return }
+            let next: UIUserInterfaceStyle = window.overrideUserInterfaceStyle == .dark ? .light : .dark
+            window.overrideUserInterfaceStyle = next
+        }, for: .touchUpInside)
+        close.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
+
+        popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showUpwardPopup() {
+        guard let window = view.window else { return }
+        let upward = TFYSwiftPopupAnimatorLayoutBottom.layout(bottomMargin: 40, offsetX: 0, height: 200)
+        let animator = TFYSwiftPopupUpwardAnimator()
+        animator.layout = TFYSwiftPopupAnimatorLayout.bottom(upward)
+        let popup = makeSlidePopupContent(.fromBottom)
+        popup.show(in: window, animator: animator, animated: true)
+    }
+
     // MARK: - Helpers
+    private func makeLabeledPopup(size: CGSize, text: String) -> TFYSwiftPopupView {
+        let popup = TFYSwiftPopupView(frame: CGRect(origin: .zero, size: size))
+        popup.backgroundColor = .systemBackground
+        popup.layer.cornerRadius = 16
+        let label = UILabel()
+        label.text = text
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(label)
+        let btn = UIButton(type: .system)
+        btn.setTitle("关闭", for: .normal)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(btn)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: popup.centerYAnchor, constant: -16),
+            btn.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
+            btn.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 12),
+        ])
+        btn.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
+        return popup
+    }
+
     private func showCenterPopup(_ animator: TFYSwiftPopupBaseAnimator) {
         guard let window = view.window else { return }
         let center = TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 220)

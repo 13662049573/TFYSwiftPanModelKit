@@ -101,6 +101,10 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
         handler.dataSource = self
         let config = contentView.backgroundConfig()
         backgroundView = TFYSwiftDimmedView(backgroundConfig: config)
+        backgroundView.tapBlock = { [weak self] _ in
+            guard let self, self.contentView.allowsTapBackgroundToDismiss() else { return }
+            self.dismiss(animated: true, completion: nil)
+        }
         modalPanContainerView = TFYSwiftPanContainerView(presentedView: contentView, frame: bounds)
     }
 
@@ -119,6 +123,8 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
         } else {
             addGestureRecognizer(handler.panGestureRecognizer)
         }
+        handler.attachScreenEdgeGestureIfNeeded(to: self)
+        updateUserHitBehavior()
         setNeedsLayoutUpdate()
         contentView.presentedViewDidMoveToSuperView()
     }
@@ -185,21 +191,19 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
 
     private func updateDragIndicatorViewFrame() {
         guard let ind = dragIndicatorView else { return }
-        let sz = ind.indicatorSize()
-        ind.frame = CGRect(x: (modalPanContainerView.panWidth - sz.width) / 2, y: -PanModalIndicatorConstants.yOffset - sz.height, width: sz.width, height: sz.height)
+        ind.frame = TFYSwiftPanModalLayoutHelper.dragIndicatorFrame(
+            containerWidth: modalPanContainerView.panWidth,
+            indicatorSize: ind.indicatorSize()
+        )
     }
 
     private func updateRoundedCorners() {
         let contentSubview = modalPanContainerView.contentView
-        if presentable?.shouldRoundTopCorners() == true {
-            let radius = presentable?.cornerRadius() ?? 8
-            let path = UIBezierPath(roundedRect: contentSubview.bounds, byRoundingCorners: [.topLeft, .topRight], cornerRadii: CGSize(width: radius, height: radius))
-            let mask = CAShapeLayer()
-            mask.path = path.cgPath
-            contentSubview.layer.mask = mask
-        } else {
-            contentSubview.layer.mask = nil
-        }
+        TFYSwiftPanModalLayoutHelper.applyTopRoundedCorners(
+            to: contentSubview,
+            radius: presentable?.cornerRadius() ?? 8,
+            enabled: presentable?.shouldRoundTopCorners() == true
+        )
     }
 
     private func snapToYPos(_ yPos: CGFloat, animated: Bool) {
@@ -235,6 +239,7 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
     public func currentHandlerPresentationState() -> PresentationState { currentPresentationState }
     public func dismiss(_ isInteractive: Bool, mode: PanModalInteractiveMode) {
         handler.panGestureRecognizer.isEnabled = false
+        handler.screenEdgeGestureRecognizer.isEnabled = false
         isDismissing = true
         contentView.panModalWillDismiss()
         TFYSwiftPanModalAnimator.dismissAnimate({ [weak self] in

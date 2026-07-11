@@ -98,7 +98,10 @@ public final class TFYSwiftPopupBackgroundView: UIControl {
         case .none:
             backgroundColor = .clear
         case .blur:
-            applyBlurEffect(.dark)
+            let style: UIBlurEffect.Style = UITraitCollection.current.userInterfaceStyle == .dark
+                ? .systemMaterialDark
+                : .systemMaterialLight
+            applyBlurEffect(style)
         case .gradient:
             applyGradientEffect(colors: [
                 UIColor.black.withAlphaComponent(0.5),

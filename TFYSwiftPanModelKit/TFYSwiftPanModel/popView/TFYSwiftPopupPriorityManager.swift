@@ -102,6 +102,8 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
     public var defaultMaxWaitingTime: TimeInterval = 30
     public var maxSimultaneousPopups: Int = 1
     public var autoCleanupExpiredPopups = true
+    /// 队列总容量上限（展示中 + 等待）；0 表示不限制
+    public var maxPopupCount: Int = 0
     private var _isQueuePaused = false
     public var isQueuePaused: Bool {
         queue.sync { _isQueuePaused }
@@ -118,13 +120,111 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
     @discardableResult
     public func add(popup: TFYSwiftPopupView, priority: TFYPopupPriority, strategy: TFYPopupPriorityStrategy, completion: (() -> Void)?) -> Bool {
         queue.sync(flags: .barrier) {
-            let item = TFYSwiftPopupPriorityItem(popupView: popup, priority: priority, strategy: strategy, maxWaitingTime: defaultMaxWaitingTime, completion: completion)
+            let item = TFYSwiftPopupPriorityItem(
+                popupView: popup,
+                priority: priority,
+                strategy: strategy,
+                maxWaitingTime: defaultMaxWaitingTime,
+                completion: completion
+            )
             internalWaitingQueue.append(item)
             internalWaitingQueue.sort { TFYPopupPriority.isHigher($0.priority, than: $1.priority) }
         }
         NotificationCenter.default.post(name: .tfyPopupQueueDidUpdate, object: self)
         processNext()
         return true
+    }
+
+    /// 设置队列总容量上限（展示中 + 等待中）
+    public func enforceMaxPopupCount(_ count: Int) {
+        queue.sync(flags: .barrier) {
+            maxPopupCount = max(0, count)
+        }
+    }
+
+    /// 根据策略请求展示弹窗
+    @discardableResult
+    public func requestShow(
+        popup: TFYSwiftPopupView,
+        priority: TFYPopupPriority,
+        strategy: TFYPopupPriorityStrategy,
+        maxWaitingTime: TimeInterval,
+        canBeReplaced: Bool,
+        showBlock: @escaping () -> Void
+    ) -> Bool {
+        // Store replaceability on the popup's configuration for later lookup
+        popup.configuration.canBeReplacedByHigherPriority = canBeReplaced
+
+        switch strategy {
+        case .reject:
+            let decision = queue.sync { () -> (shouldReject: Bool, shouldReplace: Bool, toReplace: [TFYSwiftPopupView]) in
+                guard !displayedPopups.isEmpty else {
+                    return (false, false, [])
+                }
+                guard displayedPopups.count >= maxSimultaneousPopups else {
+                    return (false, false, [])
+                }
+                let replaceable = displayedPopups.filter {
+                    $0.configuration.canBeReplacedByHigherPriority
+                        && TFYPopupPriority.isHigher(priority, than: popupPriority(for: $0))
+                }
+                if !replaceable.isEmpty {
+                    return (false, true, replaceable)
+                }
+                let highestDisplayed = displayedPopups.compactMap { popupPriority(for: $0) }.max(by: { $0.rawValue < $1.rawValue }) ?? .normal
+                let shouldReject = TFYPopupPriority.isHigher(highestDisplayed, than: priority) || highestDisplayed == priority
+                return (shouldReject, false, [])
+            }
+            if decision.shouldReplace {
+                dismissDisplayed(decision.toReplace)
+                return executeShow(popup: popup, showBlock: showBlock)
+            }
+            if decision.shouldReject { return false }
+            return enqueue(popup: popup, priority: priority, strategy: strategy, maxWaitingTime: maxWaitingTime, showBlock: showBlock)
+
+        case .replace:
+            queue.sync(flags: .barrier) {
+                let toDismiss = displayedPopups
+                displayedPopups.removeAll()
+                DispatchQueue.main.async {
+                    toDismiss.forEach { $0.dismissAnimated(false) }
+                }
+            }
+            return executeShow(popup: popup, showBlock: showBlock)
+
+        case .overlay:
+            return executeShow(popup: popup, showBlock: showBlock)
+
+        case .queue:
+            let replaceable = queue.sync { () -> [TFYSwiftPopupView] in
+                guard displayedPopups.count >= maxSimultaneousPopups else { return [] }
+                return displayedPopups.filter {
+                    $0.configuration.canBeReplacedByHigherPriority
+                        && TFYPopupPriority.isHigher(priority, than: popupPriority(for: $0))
+                }
+            }
+            if !replaceable.isEmpty {
+                dismissDisplayed(replaceable)
+                return executeShow(popup: popup, showBlock: showBlock)
+            }
+            return enqueue(popup: popup, priority: priority, strategy: strategy, maxWaitingTime: maxWaitingTime, showBlock: showBlock)
+        }
+    }
+
+    private func dismissDisplayed(_ popups: [TFYSwiftPopupView]) {
+        queue.sync(flags: .barrier) {
+            for popup in popups {
+                displayedPopups.removeAll { $0 === popup }
+            }
+        }
+        DispatchQueue.main.async {
+            popups.forEach { $0.dismissAnimated(false) }
+        }
+        NotificationCenter.default.post(name: .tfyPopupDidReplace, object: self)
+    }
+
+    public func popupPriority(for popup: TFYSwiftPopupView) -> TFYPopupPriority {
+        popup.configuration.priority
     }
 
     public func remove(popup: TFYSwiftPopupView) {
@@ -137,11 +237,17 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
 
     public func processNext() {
         queue.sync(flags: .barrier) {
-            guard !_isQueuePaused, displayedPopups.count < maxSimultaneousPopups else { return }
-            guard let next = internalWaitingQueue.first(where: { !$0.isExpired }), let popup = next.popupView else { return }
-            internalWaitingQueue.removeAll { $0 === next }
-            displayedPopups.append(popup)
-            next.completionBlock?()
+            guard !_isQueuePaused else { return }
+            clearExpiredWaitingPopupsInternal()
+            while displayedPopups.count < maxSimultaneousPopups,
+                  let nextIndex = internalWaitingQueue.firstIndex(where: { !$0.isExpired }),
+                  let popup = internalWaitingQueue[nextIndex].popupView {
+                let item = internalWaitingQueue.remove(at: nextIndex)
+                displayedPopups.append(popup)
+                DispatchQueue.main.async {
+                    item.completionBlock?()
+                }
+            }
         }
     }
 
@@ -182,8 +288,9 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
 
     public func clearExpiredWaitingPopups() {
         queue.sync(flags: .barrier) {
-            internalWaitingQueue.removeAll { $0.isExpired }
+            clearExpiredWaitingPopupsInternal()
         }
+        processNext()
     }
 
     public func pauseQueue() {
@@ -202,9 +309,90 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
         }
     }
 
-    public static func enablePriorityDebugMode(_ enabled: Bool) {}
-    public static func isPriorityDebugModeEnabled() -> Bool { false }
-    public func logPriorityQueue() {}
-    public static func priorityDescription(_ priority: TFYPopupPriority) -> String { "\(priority.rawValue)" }
-    public static func strategyDescription(_ strategy: TFYPopupPriorityStrategy) -> String { "\(strategy.rawValue)" }
+    public static func enablePriorityDebugMode(_ enabled: Bool) {
+        TFYSwiftPopupPriorityManager.shared._debugEnabled = enabled
+    }
+
+    public static func isPriorityDebugModeEnabled() -> Bool {
+        TFYSwiftPopupPriorityManager.shared._debugEnabled
+    }
+
+    public func logPriorityQueue() {
+        guard _debugEnabled else { return }
+        let waiting = waitingQueue().count
+        let displayed = currentDisplayedPopups().count
+        print("[TFYPopupPriority] displayed=\(displayed) waiting=\(waiting) paused=\(isQueuePaused)")
+    }
+
+    public static func priorityDescription(_ priority: TFYPopupPriority) -> String {
+        switch priority {
+        case .background: return "Background"
+        case .low: return "Low"
+        case .normal: return "Normal"
+        case .high: return "High"
+        case .critical: return "Critical"
+        case .urgent: return "Urgent"
+        }
+    }
+
+    public static func strategyDescription(_ strategy: TFYPopupPriorityStrategy) -> String {
+        switch strategy {
+        case .queue: return "Queue"
+        case .replace: return "Replace"
+        case .overlay: return "Overlay"
+        case .reject: return "Reject"
+        }
+    }
+
+    // MARK: - Private
+
+    fileprivate var _debugEnabled = false
+
+    @discardableResult
+    private func enqueue(
+        popup: TFYSwiftPopupView,
+        priority: TFYPopupPriority,
+        strategy: TFYPopupPriorityStrategy,
+        maxWaitingTime: TimeInterval,
+        showBlock: @escaping () -> Void
+    ) -> Bool {
+        let canEnqueue = queue.sync { () -> Bool in
+            guard maxPopupCount > 0 else { return true }
+            return displayedPopups.count + internalWaitingQueue.count < maxPopupCount
+        }
+        guard canEnqueue else { return false }
+
+        add(popup: popup, priority: priority, strategy: strategy) { [weak self] in
+            self?.logPriorityQueue()
+            showBlock()
+        }
+        if maxWaitingTime > 0 {
+            let item = queue.sync { internalWaitingQueue.first { $0.popupView === popup } }
+            if let item {
+                DispatchQueue.main.asyncAfter(deadline: .now() + maxWaitingTime) { [weak self, weak popup] in
+                    guard let self, let popup, item.isExpired else { return }
+                    self.remove(popup: popup)
+                }
+            }
+        }
+        return true
+    }
+
+    @discardableResult
+    private func executeShow(popup: TFYSwiftPopupView, showBlock: @escaping () -> Void) -> Bool {
+        queue.sync(flags: .barrier) {
+            if !displayedPopups.contains(where: { $0 === popup }) {
+                displayedPopups.append(popup)
+            }
+        }
+        DispatchQueue.main.async {
+            showBlock()
+        }
+        logPriorityQueue()
+        return true
+    }
+
+    private func clearExpiredWaitingPopupsInternal() {
+        internalWaitingQueue.removeAll { $0.isExpired }
+    }
 }

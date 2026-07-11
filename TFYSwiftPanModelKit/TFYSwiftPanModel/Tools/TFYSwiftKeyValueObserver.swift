@@ -11,10 +11,11 @@ import Foundation
 public final class TFYSwiftKeyValueObserver: NSObject {
 
     private weak var observedObject: NSObject?
-    /// 强引用，仅用于 deinit 时安全调用 removeObserver
+    /// 强引用，仅用于安全调用 removeObserver
     private var observedObjectStrong: NSObject?
     private var keyPath: String = ""
     private var shouldObserve: Bool = true
+    private var isObserving: Bool = false
     private var callback: (([NSKeyValueChangeKey: Any]) -> Void)?
 
     private override init() {
@@ -41,6 +42,7 @@ public final class TFYSwiftKeyValueObserver: NSObject {
         observer.observedObjectStrong = object
         observer.shouldObserve = true
         object.addObserver(observer, forKeyPath: keyPath, options: options, context: Unmanaged.passUnretained(observer).toOpaque())
+        observer.isObserving = true
         return observer
     }
 
@@ -54,13 +56,24 @@ public final class TFYSwiftKeyValueObserver: NSObject {
         callback?(change)
     }
 
-    /// 取消监听（调用后需重新 observe 才生效）
+    /// 取消监听（幂等；调用后需重新 observe 才生效）
     public func unobserve() {
         shouldObserve = false
+        removeObserverIfNeeded()
+        callback = nil
     }
 
     deinit {
-        guard let obj = observedObjectStrong, !keyPath.isEmpty else { return }
+        removeObserverIfNeeded()
+    }
+
+    private func removeObserverIfNeeded() {
+        guard isObserving, let obj = observedObjectStrong, !keyPath.isEmpty else {
+            isObserving = false
+            observedObjectStrong = nil
+            return
+        }
+        isObserving = false
         observedObjectStrong = nil
         obj.removeObserver(self, forKeyPath: keyPath)
     }

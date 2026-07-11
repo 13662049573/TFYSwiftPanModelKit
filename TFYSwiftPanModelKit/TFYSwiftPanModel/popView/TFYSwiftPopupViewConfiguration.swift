@@ -99,10 +99,7 @@ public final class TFYSwiftPopupViewConfiguration: NSObject, NSCopying {
     }
 
     public static func currentTheme() -> TFYPopupTheme {
-        if #available(iOS 13.0, *) {
-            return UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
-        }
-        return .default
+        UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light
     }
 
     public func copy(with zone: NSZone? = nil) -> Any {

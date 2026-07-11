@@ -20,11 +20,13 @@ public protocol TFYSwiftPanModalPresentableHandlerDelegate: AnyObject {
     func dismiss(_ isInteractive: Bool, mode: PanModalInteractiveMode)
     func cancelInteractiveTransition()
     func finishInteractiveTransition()
+    func updateInteractiveTransition(percent: CGFloat)
 }
 
 public extension TFYSwiftPanModalPresentableHandlerDelegate {
     func cancelInteractiveTransition() {}
     func finishInteractiveTransition() {}
+    func updateInteractiveTransition(percent: CGFloat) {}
 }
 
 /// Handler 数据源
@@ -83,6 +85,10 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
     private var observerToken: TFYSwiftKeyValueObserver?
     private var scrollViewYOffset: CGFloat = 0
     private var keyboardObserved = false
+    /// 键盘避让产生的纵向偏移（与手势 transform 分层，避免互相覆盖）
+    private var keyboardTranslationY: CGFloat = 0
+    /// 是否已启动交互式 dismiss（仅此时可 finish/cancel interactive）
+    private var hasStartedInteractiveDismiss = false
 
     public init(presentable: AnyObject & TFYSwiftPanModalPresentable) {
         self.presentable = presentable
@@ -155,7 +161,20 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
         respondToPanGesture(pan)
         if pan.state == .began, (presentable?.presentingVCAnimationStyle().rawValue ?? 0) > 0, velocity.y > 0,
            let pv = presentedView, (pv.frame.origin.y > shortFormYPosition || pv.frame.origin.y.isNearlyEqual(to: shortFormYPosition)) {
+            hasStartedInteractiveDismiss = true
             dismissPresentable(true, mode: .dragDown)
+        }
+        if let pv = presentedView {
+            let isPullingDown = pv.frame.origin.y > shortFormYPosition + 1
+            if isPullingDown, presentable?.allowsDragToDismiss() == true {
+                if !isBeingDismissed() {
+                    hasStartedInteractiveDismiss = true
+                    dismissPresentable(true, mode: .dragDown)
+                }
+                if isBeingDismissed(), isPresentedControllerInteractive() {
+                    delegate?.updateInteractiveTransition(percent: interactiveDismissPercent(for: pv))
+                }
+            }
         }
         if let pv = presentedView, pv.frame.origin.y.isNearlyEqual(to: anchoredYPosition), extendsPanScrolling {
             presentable?.willTransition(to: .long)
@@ -192,11 +211,12 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
             else if pos.isNearlyEqual(to: shortFormYPosition) || (presentable?.allowsDragToDismiss() == false) {
                 transitionToState(.short); cancelInteractiveTransition()
             } else {
-                if isBeingDismissed() { finishInteractiveTransition() }
+                if isBeingDismissed(), hasStartedInteractiveDismiss { finishInteractiveTransition() }
                 else { dismissPresentable(false, mode: .none) }
             }
         }
         presentable?.didEndRespondToPanModalGestureRecognizer(pan)
+        hasStartedInteractiveDismiss = false
     }
 
     private func handleDragUpState(_ state: PresentationState) {
@@ -213,7 +233,7 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
         case .medium: transitionToState(.short); cancelInteractiveTransition()
         case .short:
             if presentable?.allowsDragToDismiss() == false { transitionToState(.short); cancelInteractiveTransition() }
-            else { if isBeingDismissed() { finishInteractiveTransition() } else { dismissPresentable(false, mode: .none) } }
+            else { if isBeingDismissed(), hasStartedInteractiveDismiss { finishInteractiveTransition() } else { dismissPresentable(false, mode: .none) } }
         }
     }
 
@@ -238,7 +258,67 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
         return nearest
     }
 
-    @objc private func screenEdgeInteractiveAction(_ g: UIPanGestureRecognizer) {}
+    @objc private func screenEdgeInteractiveAction(_ g: UIPanGestureRecognizer) {
+        guard presentable?.allowScreenEdgeInteractive() == true,
+              presentable?.allowsDragToDismiss() == true else { return }
+
+        let translation = g.translation(in: g.view)
+        let velocity = g.velocity(in: g.view)
+        let containerWidth = containerSize().width
+
+        switch g.state {
+        case .began, .changed:
+            let dx = max(0, translation.x)
+            applyPresentedTransform(translationX: dx, translationY: keyboardTranslationY)
+            let percent = min(1, dx / max(containerWidth * 0.5, 1))
+            presentable?.panModalGestureRecognizer(g, dismissPercent: percent)
+            if dx > 0, !isBeingDismissed() {
+                hasStartedInteractiveDismiss = true
+                dismissPresentable(true, mode: .sideslip)
+            }
+            if isBeingDismissed(), isPresentedControllerInteractive() {
+                delegate?.updateInteractiveTransition(percent: percent)
+            }
+        case .ended, .cancelled, .failed:
+            let minVelocity = presentable?.minHorizontalVelocityToTriggerScreenEdgeDismiss() ?? 500
+            let shouldDismiss = translation.x > containerWidth * 0.25 || velocity.x > minVelocity
+            if shouldDismiss {
+                triggerHapticIfEnabled(.medium)
+                if isBeingDismissed(), hasStartedInteractiveDismiss, isPresentedControllerInteractive() {
+                    finishInteractiveTransition()
+                } else if !isBeingDismissed() {
+                    dismissPresentable(false, mode: .sideslip)
+                } else if isBeingDismissed(), hasStartedInteractiveDismiss {
+                    finishInteractiveTransition()
+                }
+            } else {
+                UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) { [weak self] in
+                    guard let self else { return }
+                    self.applyPresentedTransform(translationX: 0, translationY: self.keyboardTranslationY)
+                }
+                if hasStartedInteractiveDismiss {
+                    cancelInteractiveTransition()
+                }
+            }
+            hasStartedInteractiveDismiss = false
+            g.setTranslation(.zero, in: g.view)
+        default:
+            break
+        }
+    }
+
+    /// 合成键盘偏移与手势偏移，避免互相覆盖
+    private func applyPresentedTransform(translationX: CGFloat, translationY: CGFloat) {
+        presentedView?.transform = CGAffineTransform(translationX: translationX, y: translationY)
+    }
+
+    /// 将边缘滑动手势附加到容器视图
+    public func attachScreenEdgeGestureIfNeeded(to containerView: UIView) {
+        guard presentable?.allowScreenEdgeInteractive() == true else { return }
+        guard screenEdgeGestureRecognizer.view !== containerView else { return }
+        screenEdgeGestureRecognizer.view?.removeGestureRecognizer(screenEdgeGestureRecognizer)
+        containerView.addGestureRecognizer(screenEdgeGestureRecognizer)
+    }
 
     // MARK: - ScrollView KVO
     public func observeScrollable() {
@@ -286,13 +366,7 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
         scrollView.scrollIndicatorInsets = presentable?.scrollIndicatorInsets() ?? .zero
         if presentable?.shouldAutoSetPanScrollContentInset() == true {
             var insets = scrollView.contentInset
-            var bottom: CGFloat = 0
-            for scene in UIApplication.shared.connectedScenes {
-                guard let ws = scene as? UIWindowScene, ws.activationState == .foregroundActive,
-                      let w = ws.windows.first(where: { $0.isKeyWindow }) else { continue }
-                bottom = w.safeAreaInsets.bottom
-                break
-            }
+            let bottom = TFYSwiftWindowHelper.safeAreaInsets.bottom
             if insets.bottom.isNearZero || insets.bottom < bottom {
                 insets.bottom = bottom
                 scrollView.contentInset = insets
@@ -387,12 +461,13 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
 
     @objc private func keyboardWillHide(_ n: Notification) {
         keyboardInfo = nil
+        keyboardTranslationY = 0
         let userInfo = n.userInfo ?? [:]
         let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
         let curveValue = (userInfo[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 0
         let options = UIView.AnimationOptions(rawValue: curveValue << 16)
-        UIView.animate(withDuration: duration, delay: 0, options: options) {
-            self.presentedView?.transform = .identity
+        UIView.animate(withDuration: duration, delay: 0, options: options) { [weak self] in
+            self?.applyPresentedTransform(translationX: 0, translationY: 0)
         }
     }
 
@@ -403,19 +478,22 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
         let textBottomY = textInput.convert(textInput.bounds, to: pv).maxY
         let keyboardHeight = (keyboardInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue.height ?? 0
         let top = presentable?.keyboardOffsetFromInputView() ?? 5
-        let offsetY = pv.panHeight - (keyboardHeight + top + textBottomY + pv.panTop)
+        let offsetY = min(0, pv.panHeight - (keyboardHeight + top + textBottomY + pv.panTop))
         pv.transform = lastTransform
+        keyboardTranslationY = offsetY
         let duration = (keyboardInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
         let curveValue = (keyboardInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue ?? 0
-        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curveValue << 16)) {
-            pv.transform = CGAffineTransform(translationX: 0, y: offsetY)
+        UIView.animate(withDuration: duration, delay: 0, options: UIView.AnimationOptions(rawValue: curveValue << 16)) { [weak self] in
+            self?.applyPresentedTransform(translationX: 0, translationY: offsetY)
         }
     }
 
     private func findCurrentTextInput(in view: UIView?) -> UIView? {
         guard let view = view else { return nil }
         if view is UIKeyInput, view.isFirstResponder {
-            if type(of: view).description().contains("WebBrowserView") || type(of: view).description().contains("WKContentView") { return nil }
+            // WKWebView 内部输入控件不参与键盘避让，避免错误抬升
+            let typeName = String(describing: type(of: view))
+            if typeName.contains("WKContent") || typeName.contains("WebBrowser") { return nil }
             return view
         }
         for sub in view.subviews {
@@ -425,7 +503,22 @@ public final class TFYSwiftPanModalPresentableHandler: NSObject, UIGestureRecogn
     }
 
     // MARK: - Delegate/DataSource helpers
-    private func transitionToState(_ state: PresentationState) { delegate?.presentableTransition(to: state) }
+    private func transitionToState(_ state: PresentationState) {
+        triggerHapticIfEnabled(.light)
+        delegate?.presentableTransition(to: state)
+    }
+
+    private func interactiveDismissPercent(for presentedView: UIView) -> CGFloat {
+        let containerHeight = containerSize().height
+        let dismissDistance = max(containerHeight - shortFormYPosition, 1)
+        let dragged = presentedView.frame.origin.y - shortFormYPosition
+        return min(1, max(0, dragged / dismissDistance))
+    }
+
+    private func triggerHapticIfEnabled(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard presentable?.isHapticFeedbackEnabled() == true else { return }
+        TFYSwiftHapticFeedback.impact(style)
+    }
     private func cancelInteractiveTransition() { delegate?.cancelInteractiveTransition() }
     private func finishInteractiveTransition() { delegate?.finishInteractiveTransition() }
     private func dismissPresentable(_ interactive: Bool, mode: PanModalInteractiveMode) { delegate?.dismiss(interactive, mode: mode) }

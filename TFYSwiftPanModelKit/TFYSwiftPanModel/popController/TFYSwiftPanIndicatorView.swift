@@ -10,7 +10,11 @@ import UIKit
 /// PanModal 拖拽指示器视图
 public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorProtocol {
 
-    public var indicatorColor: UIColor = UIColor(red: 0.792, green: 0.788, blue: 0.812, alpha: 1) {
+    public var indicatorColor: UIColor = UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(white: 0.72, alpha: 1)
+            : UIColor(red: 0.792, green: 0.788, blue: 0.812, alpha: 1)
+    } {
         didSet {
             leftView.backgroundColor = indicatorColor
             rightView.backgroundColor = indicatorColor
@@ -24,12 +28,24 @@ public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorPr
     public override init(frame: CGRect) {
         super.init(frame: .zero)
         backgroundColor = .clear
+        isAccessibilityElement = true
+        accessibilityLabel = NSLocalizedString("Drag indicator", comment: "PanModal drag indicator")
+        accessibilityTraits = .adjustable
         addSubview(leftView)
         addSubview(rightView)
+        leftView.backgroundColor = indicatorColor
+        rightView.backgroundColor = indicatorColor
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
+        leftView.backgroundColor = indicatorColor
+        rightView.backgroundColor = indicatorColor
     }
 
     private func animate(_ animations: @escaping () -> Void) {
@@ -70,5 +86,7 @@ public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorPr
         rightView.frame = CGRect(x: frame.width / 2 - correction, y: 0, width: frame.width / 2 + correction, height: height)
         rightView.panCenterY = panHeight / 2
         rightView.layer.cornerRadius = min(rightView.panWidth, rightView.panHeight) / 2
+        leftView.backgroundColor = indicatorColor
+        rightView.backgroundColor = indicatorColor
     }
 }

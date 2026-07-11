@@ -95,7 +95,14 @@ public final class TFYSwiftPanModalPresentationAnimator: NSObject, UIViewControl
         let containerView = ctx.containerView
 
         TFYSwiftPanModalAnimator.dismissAnimate({
-            presentedView.frame.origin.y = containerView.bounds.height
+            switch self.interactiveMode {
+            case .sideslip:
+                presentedView.transform = CGAffineTransform(translationX: containerView.bounds.width, y: 0)
+                presentedView.alpha = 0
+            case .dragDown, .none:
+                presentedView.transform = .identity
+                presentedView.frame.origin.y = containerView.bounds.height
+            }
         }, config: fromVC) { _ in
             ctx.completeTransition(!ctx.transitionWasCancelled)
         }

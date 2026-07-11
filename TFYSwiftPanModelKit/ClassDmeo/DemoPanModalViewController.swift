@@ -174,3 +174,43 @@ final class DemoCustomStyleVC: UIViewController {
 
     override func originPresentationState() -> PresentationState { .short }
 }
+
+// MARK: - 边缘滑动关闭弹窗
+
+final class DemoEdgeInteractiveVC: UIViewController {
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "边缘滑动关闭"
+        title.font = .boldSystemFont(ofSize: 20)
+        title.textAlignment = .center
+
+        let desc = UILabel()
+        desc.text = "从屏幕左边缘向右滑动可关闭弹窗\n同时支持下拉关闭与触觉反馈"
+        desc.numberOfLines = 0
+        desc.textAlignment = .center
+        desc.textColor = .secondaryLabel
+
+        let stack = UIStackView(arrangedSubviews: [title, desc])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 40),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+        ])
+    }
+
+    override func shortFormHeight() -> PanModalHeight { PanModalHeight(type: .content, height: 280) }
+    override func longFormHeight() -> PanModalHeight { PanModalHeight(type: .content, height: 450) }
+    override func allowScreenEdgeInteractive() -> Bool { true }
+    override func maxAllowedDistanceToLeftScreenEdgeForPanInteraction() -> CGFloat { 30 }
+    override func isHapticFeedbackEnabled() -> Bool { true }
+    override func originPresentationState() -> PresentationState { .short }
+}

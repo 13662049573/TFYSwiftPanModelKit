@@ -24,14 +24,7 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
 
     public var topLayoutOffset: CGFloat { 0 }
     public var bottomLayoutOffset: CGFloat {
-        if #available(iOS 15.0, *) {
-            for scene in UIApplication.shared.connectedScenes {
-                guard let ws = scene as? UIWindowScene, ws.activationState == .foregroundActive,
-                      let w = ws.windows.first else { continue }
-                return w.safeAreaInsets.bottom
-            }
-        }
-        return 0
+        TFYSwiftWindowHelper.safeAreaInsets.bottom
     }
 
     public var shortFormYPos: CGFloat {
@@ -56,23 +49,21 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
     }
 
     public func topMarginFromPanModalHeight(_ panModalHeight: PanModalHeight) -> CGFloat {
-        switch panModalHeight.type {
-        case .max: return 0
-        case .topInset: return panModalHeight.height
-        case .content: return bottomYPos - (panModalHeight.height + bottomLayoutOffset)
-        case .contentIgnoringSafeArea: return bottomYPos - panModalHeight.height
-        case .intrinsic:
-            layoutIfNeeded()
-            let w = containerView?.bounds.width ?? TFYSwiftWindowHelper.screenWidth
+        TFYSwiftPanModalLayoutHelper.topMargin(
+            for: panModalHeight,
+            bottomYPos: bottomYPos,
+            bottomLayoutOffset: bottomLayoutOffset
+        ) {
+            self.layoutIfNeeded()
+            let w = self.containerView?.bounds.width ?? TFYSwiftWindowHelper.screenWidth
             let targetSize = CGSize(width: w, height: UIView.layoutFittingCompressedSize.height)
-            let height = systemLayoutSizeFitting(targetSize).height
-            return bottomYPos - (height + bottomLayoutOffset)
+            return self.systemLayoutSizeFitting(targetSize).height
         }
     }
 
     public func present(in view: UIView?) {
         var targetView = view
-        if targetView == nil { targetView = findKeyWindow() }
+        if targetView == nil { targetView = TFYSwiftWindowHelper.activeWindow }
         if let old = containerView { old.removeFromSuperview(); _containerView = nil }
         guard let v = targetView else { return }
         let container = TFYSwiftPanModalContainerView(presentingView: v, contentView: self)
@@ -118,14 +109,6 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
     public func originPresentationState() -> PresentationState { .short }
     public func backgroundConfig() -> TFYSwiftBackgroundConfig { TFYSwiftBackgroundConfig.config(behavior: .default) }
     public func contentShadow() -> TFYSwiftPanModalShadow { .none }
-
-    private func findKeyWindow() -> UIView? {
-        for scene in UIApplication.shared.connectedScenes {
-            guard let ws = scene as? UIWindowScene else { continue }
-            for w in ws.windows where w.isKeyWindow { return w }
-        }
-        return nil
-    }
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
