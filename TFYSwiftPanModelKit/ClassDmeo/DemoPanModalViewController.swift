@@ -214,3 +214,49 @@ final class DemoEdgeInteractiveVC: UIViewController {
     override func isHapticFeedbackEnabled() -> Bool { true }
     override func originPresentationState() -> PresentationState { .short }
 }
+
+// MARK: - 防频繁点击演示
+
+final class DemoFrequentTapVC: UIViewController {
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "防频繁点击"
+        title.font = .boldSystemFont(ofSize: 20)
+        title.textAlignment = .center
+
+        let desc = UILabel()
+        desc.text = "快速连续点击列表入口会触发节流\nshouldPreventFrequentTapping = true\n间隔 1.5 秒"
+        desc.numberOfLines = 0
+        desc.textAlignment = .center
+        desc.textColor = .secondaryLabel
+
+        let btn = UIButton(type: .system)
+        btn.setTitle("关闭", for: .normal)
+        btn.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true) }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [title, desc, btn])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 40),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+        ])
+    }
+
+    override func shortFormHeight() -> PanModalHeight { PanModalHeight(type: .content, height: 260) }
+    override func longFormHeight() -> PanModalHeight { PanModalHeight(type: .content, height: 260) }
+    override func shouldPreventFrequentTapping() -> Bool { true }
+    override func frequentTapPreventionInterval() -> TimeInterval { 1.5 }
+    override func shouldShowFrequentTapPreventionHint() -> Bool { true }
+    override func frequentTapPreventionHintText() -> String? { "点击太快了，请稍后再试" }
+    override func isHapticFeedbackEnabled() -> Bool { true }
+    override func originPresentationState() -> PresentationState { .short }
+}

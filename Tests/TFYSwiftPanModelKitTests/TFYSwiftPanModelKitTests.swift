@@ -145,3 +145,35 @@ final class TFYSwiftKeyboardModeTests: XCTestCase {
         XCTAssertEqual(TFYPopupKeyboardAvoidingMode.resize.rawValue, 2)
     }
 }
+
+final class TFYSwiftPopupPresentableTests: XCTestCase {
+
+    func testDefaultPreferredSize() {
+        let vc = UIViewController()
+        let size = vc.popupPreferredContentSize()
+        XCTAssertEqual(size.width, 300)
+        XCTAssertEqual(size.height, 220)
+    }
+
+    func testPreferredContentSizeOverride() {
+        let vc = UIViewController()
+        vc.preferredContentSize = CGSize(width: 280, height: 180)
+        let size = vc.popupPreferredContentSize()
+        XCTAssertEqual(size.width, 280)
+        XCTAssertEqual(size.height, 180)
+    }
+
+    func testContentViewControllerOverrides() {
+        let vc = TFYSwiftPopupContentViewController()
+        let config = vc.preferredPopupConfiguration()
+        XCTAssertEqual(config.cornerRadius, 16)
+        XCTAssertTrue(vc.shouldAllowPopupDismiss())
+        XCTAssertNil(vc.preferredPopupAnimator())
+    }
+
+    func testHostingViewHoldsContent() {
+        let content = UIViewController()
+        let hosting = TFYSwiftPopupHostingView(contentViewController: content)
+        XCTAssertTrue(hosting.contentViewController === content)
+    }
+}

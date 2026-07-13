@@ -240,12 +240,19 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
             guard !_isQueuePaused else { return }
             clearExpiredWaitingPopupsInternal()
             while displayedPopups.count < maxSimultaneousPopups,
-                  let nextIndex = internalWaitingQueue.firstIndex(where: { !$0.isExpired }),
+                  let nextIndex = internalWaitingQueue.firstIndex(where: { !$0.isExpired && $0.popupView != nil }),
                   let popup = internalWaitingQueue[nextIndex].popupView {
                 let item = internalWaitingQueue.remove(at: nextIndex)
                 displayedPopups.append(popup)
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self, weak popup] in
                     item.completionBlock?()
+                    // show 异步完成后若仍未展示，释放槽位，避免后续弹窗永久等待
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        guard let self, let popup else { return }
+                        if !popup.isShowing {
+                            self.remove(popup: popup)
+                        }
+                    }
                 }
             }
         }
@@ -385,14 +392,20 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
                 displayedPopups.append(popup)
             }
         }
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self, weak popup] in
             showBlock()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                guard let self, let popup else { return }
+                if !popup.isShowing {
+                    self.remove(popup: popup)
+                }
+            }
         }
         logPriorityQueue()
         return true
     }
 
     private func clearExpiredWaitingPopupsInternal() {
-        internalWaitingQueue.removeAll { $0.isExpired }
+        internalWaitingQueue.removeAll { $0.isExpired || $0.popupView == nil }
     }
 }

@@ -55,6 +55,8 @@ open class TFYSwiftPopupView: UIView {
             guard let self else { return }
             self.resolveContainer(from: container, configuration: config) { resolvedContainer in
                 guard let resolvedContainer else {
+                    // 未能解析容器时必须出队，否则会永久占用 displayed 槽位
+                    TFYSwiftPopupPriorityManager.shared.remove(popup: self)
                     completion?()
                     return
                 }
@@ -70,7 +72,7 @@ open class TFYSwiftPopupView: UIView {
         }
 
         if config.enablePriorityManagement {
-            TFYSwiftPopupPriorityManager.shared.requestShow(
+            let accepted = TFYSwiftPopupPriorityManager.shared.requestShow(
                 popup: self,
                 priority: config.priority,
                 strategy: config.priorityStrategy,
@@ -78,6 +80,9 @@ open class TFYSwiftPopupView: UIView {
                 canBeReplaced: config.canBeReplacedByHigherPriority,
                 showBlock: showBlock
             )
+            if !accepted {
+                completion?()
+            }
         } else {
             showBlock()
         }
@@ -102,13 +107,20 @@ open class TFYSwiftPopupView: UIView {
     }
 
     /// 关闭弹窗
-    open func dismissAnimated(_ animated: Bool, completion: (() -> Void)? = nil) {
+    /// - Parameters:
+    ///   - animated: 是否动画
+    ///   - force: true 时跳过 `popupViewShouldDismiss`（用于关闭按钮等程序化关闭）
+    ///   - completion: 完成回调
+    open func dismissAnimated(_ animated: Bool, force: Bool = false, completion: (() -> Void)? = nil) {
         guard isShowing, let animator = animator, let bgView = backgroundView else {
+            // 未成功展示时也要从优先级队列移除，避免卡住后续弹窗
+            isShowing = false
+            TFYSwiftPopupPriorityManager.shared.remove(popup: self)
             completion?()
             return
         }
 
-        if delegate?.popupViewShouldDismiss(self) == false { return }
+        if !force, delegate?.popupViewShouldDismiss(self) == false { return }
 
         invalidateObserversAndTimers()
         delegate?.popupViewWillDisappear(self)
@@ -137,7 +149,10 @@ open class TFYSwiftPopupView: UIView {
         animated: Bool,
         completion: (() -> Void)?
     ) {
-        guard !isShowing else { return }
+        guard !isShowing else {
+            completion?()
+            return
+        }
 
         self.animator = animator
         self.containerView = container
@@ -311,12 +326,14 @@ open class TFYSwiftPopupView: UIView {
 
         if configuration.enableDragToDismiss {
             let pan = UIPanGestureRecognizer(target: self, action: #selector(handleDragToDismiss(_:)))
+            pan.cancelsTouchesInView = false
             addGestureRecognizer(pan)
             dismissGestures.append(pan)
         }
         if configuration.enableSwipeToDismiss {
             let swipe = UISwipeGestureRecognizer(target: self, action: #selector(handleSwipeToDismiss(_:)))
             swipe.direction = [.left, .right, .down]
+            swipe.cancelsTouchesInView = false
             addGestureRecognizer(swipe)
             dismissGestures.append(swipe)
         }

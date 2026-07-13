@@ -65,7 +65,8 @@ public final class TFYSwiftPopupViewConfiguration: NSObject, NSCopying {
     public var priorityStrategy: TFYPopupPriorityStrategy = .queue
     public var canBeReplacedByHigherPriority = true
     public var maxWaitingTime: TimeInterval = 0
-    public var enablePriorityManagement = true
+    /// 默认关闭，避免未关闭的弹窗把后续展示静默卡在队列里；需要队列时显式打开
+    public var enablePriorityManagement = false
 
     public var containerSelectionStrategy: TFYPopupContainerSelectionStrategy = .auto
     public var preferredContainerType: TFYPopupContainerType = .window
