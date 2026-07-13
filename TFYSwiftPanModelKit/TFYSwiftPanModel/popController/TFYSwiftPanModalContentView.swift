@@ -62,6 +62,12 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
     }
 
     public func present(in view: UIView?) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self, weak view] in
+                self?.present(in: view)
+            }
+            return
+        }
         var targetView = view
         if targetView == nil { targetView = TFYSwiftWindowHelper.activeWindow }
         if let old = containerView { old.removeFromSuperview(); _containerView = nil }
@@ -72,6 +78,12 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
     }
 
     public func dismiss(animated: Bool, completion: (() -> Void)?) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.dismiss(animated: animated, completion: completion)
+            }
+            return
+        }
         guard let cv = containerView else { completion?(); return }
         cv.dismiss(animated: animated, completion: { [weak self] in
             completion?()

@@ -34,12 +34,20 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
     }
 
     public func show() {
-        prepare()
+        guard superview == nil, !isPresenting, !isDismissing, prepare() else { return }
         presentAnimationWillBegin()
         beginPresentAnimation()
     }
 
     public func dismiss(animated: Bool, completion: (() -> Void)?) {
+        guard superview != nil, handler != nil, modalPanContainerView != nil else {
+            completion?()
+            return
+        }
+        guard !isDismissing else {
+            completion?()
+            return
+        }
         if animated {
             animationBlock = completion
             dismiss(false, mode: .none)
@@ -54,6 +62,7 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
     }
 
     public func setNeedsLayoutUpdate() {
+        guard handler != nil, backgroundView != nil, modalPanContainerView != nil else { return }
         handler.configureViewLayout()
         isUserInteractionEnabled = contentView.isUserInteractionEnabled()
         backgroundView.blurTintColor = contentView.backgroundConfig().blurTintColor
@@ -66,10 +75,12 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
     }
 
     public func updateUserHitBehavior() {
+        guard backgroundView != nil else { return }
         backgroundView.isUserInteractionEnabled = contentView.allowsTapBackgroundToDismiss()
     }
 
     public func transition(to state: PresentationState, animated: Bool) {
+        guard handler != nil, modalPanContainerView != nil else { return }
         if contentView.shouldTransition(to: state) == false { return }
         dragIndicatorView?.didChange(to: .normal)
         contentView.willTransition(to: state)
@@ -82,16 +93,24 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
         snapToYPos(yPos, animated: animated)
         currentPresentationState = state
         contentView.didChangeTransition(to: state)
+        let announcement: String
+        switch state {
+        case .short: announcement = NSLocalizedString("Sheet collapsed", comment: "PanModal short state")
+        case .medium: announcement = NSLocalizedString("Sheet medium height", comment: "PanModal medium state")
+        case .long: announcement = NSLocalizedString("Sheet expanded", comment: "PanModal long state")
+        }
+        UIAccessibility.post(notification: .announcement, argument: announcement)
     }
 
     public func setScrollableContentOffset(_ offset: CGPoint, animated: Bool) {
-        handler.setScrollableContentOffset(offset, animated: animated)
+        handler?.setScrollableContentOffset(offset, animated: animated)
     }
 
     private var presentable: TFYSwiftPanModalPresentable? { contentView }
 
-    private func prepare() {
-        guard let pv = presentingView else { return }
+    @discardableResult
+    private func prepare() -> Bool {
+        guard let pv = presentingView else { return false }
         pv.addSubview(self)
         frame = pv.bounds
         handler?.delegate = nil
@@ -106,6 +125,7 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
             self.dismiss(animated: true, completion: nil)
         }
         modalPanContainerView = TFYSwiftPanContainerView(presentedView: contentView, frame: bounds)
+        return true
     }
 
     private func presentAnimationWillBegin() {
@@ -268,6 +288,6 @@ public final class TFYSwiftPanModalContainerView: UIView, TFYSwiftPanModalPresen
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        handler.configureViewLayout()
+        handler?.configureViewLayout()
     }
 }

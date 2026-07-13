@@ -7,6 +7,28 @@
 
 import UIKit
 
+enum TFYSwiftPopupLayoutHelper {
+    /// Returns the minimum upward movement required to keep a popup above the keyboard.
+    static func keyboardAvoidanceOffset(
+        popupFrame: CGRect,
+        keyboardFrame: CGRect,
+        additionalOffset: CGFloat,
+        safeAreaBottom: CGFloat
+    ) -> CGFloat {
+        guard popupFrame.width > 0,
+              popupFrame.height > 0,
+              keyboardFrame.width > 0,
+              keyboardFrame.height > 0,
+              popupFrame.maxX > keyboardFrame.minX,
+              popupFrame.minX < keyboardFrame.maxX else {
+            return 0
+        }
+        let effectiveKeyboardTop = keyboardFrame.minY + max(0, safeAreaBottom)
+        let overlap = popupFrame.maxY - effectiveKeyboardTop
+        return overlap > 0 ? overlap + max(0, additionalOffset) : 0
+    }
+}
+
 /// 弹窗视图，管理 animator + backgroundView 的展示与隐藏生命周期
 open class TFYSwiftPopupView: UIView {
 
@@ -23,8 +45,10 @@ open class TFYSwiftPopupView: UIView {
     private var originalTransform: CGAffineTransform = .identity
     private var originalCenter: CGPoint = .zero
     private var originalBounds: CGRect = .zero
+    private var originalFrame: CGRect = .zero
     private var keyboardConstraintOffset: CGFloat = 0
     private var dismissGestures: [UIGestureRecognizer] = []
+    private var isDismissing = false
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -43,6 +67,20 @@ open class TFYSwiftPopupView: UIView {
         animated: Bool = true,
         completion: (() -> Void)? = nil
     ) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.show(
+                    in: container,
+                    animator: animator,
+                    configuration: configuration,
+                    backgroundView: backgroundView,
+                    animated: animated,
+                    completion: completion
+                )
+            }
+            return
+        }
+
         let config = configuration ?? self.configuration
         guard config.validate() else {
             completion?()
@@ -72,6 +110,7 @@ open class TFYSwiftPopupView: UIView {
         }
 
         if config.enablePriorityManagement {
+            TFYSwiftPopupPriorityManager.shared.enforceMaxPopupCount(config.maxPopupCount)
             let accepted = TFYSwiftPopupPriorityManager.shared.requestShow(
                 popup: self,
                 priority: config.priority,
@@ -112,30 +151,38 @@ open class TFYSwiftPopupView: UIView {
     ///   - force: true 时跳过 `popupViewShouldDismiss`（用于关闭按钮等程序化关闭）
     ///   - completion: 完成回调
     open func dismissAnimated(_ animated: Bool, force: Bool = false, completion: (() -> Void)? = nil) {
-        guard isShowing, let animator = animator, let bgView = backgroundView else {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async {
+                self.dismissAnimated(animated, force: force, completion: completion)
+            }
+            return
+        }
+
+        guard isShowing else {
             // 未成功展示时也要从优先级队列移除，避免卡住后续弹窗
-            isShowing = false
             TFYSwiftPopupPriorityManager.shared.remove(popup: self)
+            completion?()
+            return
+        }
+        guard !isDismissing else {
             completion?()
             return
         }
 
         if !force, delegate?.popupViewShouldDismiss(self) == false { return }
 
+        isDismissing = true
         invalidateObserversAndTimers()
         delegate?.popupViewWillDisappear(self)
 
+        guard let animator, let bgView = backgroundView else {
+            completeDismiss(backgroundView: backgroundView, completion: completion)
+            return
+        }
+
         animator.dismiss(contentView: self, backgroundView: bgView, animated: animated) { [weak self] in
             guard let self else { return }
-            self.removeFromSuperview()
-            bgView.removeFromSuperview()
-            self.isShowing = false
-            self.animator = nil
-            self.backgroundView = nil
-            self.transform = .identity
-            TFYSwiftPopupPriorityManager.shared.remove(popup: self)
-            self.delegate?.popupViewDidDisappear(self)
-            completion?()
+            self.completeDismiss(backgroundView: bgView, completion: completion)
         }
     }
 
@@ -154,36 +201,47 @@ open class TFYSwiftPopupView: UIView {
             return
         }
 
+        invalidateObserversAndTimers()
+        isDismissing = false
         self.animator = animator
         self.containerView = container
         originalTransform = .identity
         originalCenter = .zero
         originalBounds = .zero
+        originalFrame = .zero
         keyboardConstraintOffset = 0
 
+        alpha = 1
+        transform = .identity
+        layer.transform = CATransform3DIdentity
         applyTheme(from: configuration)
-        if configuration.cornerRadius > 0 {
-            layer.cornerRadius = configuration.cornerRadius
-            layer.masksToBounds = true
-        }
+        applyContainerAppearance(from: configuration)
 
         isUserInteractionEnabled = configuration.isInteractive
 
         let bgView = backgroundView ?? makeBackgroundView(configuration: configuration)
         self.backgroundView = bgView
+        bgView.alpha = 1
         bgView.frame = container.bounds
         bgView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         let allowsBackgroundDismiss = configuration.isDismissible && configuration.dismissOnBackgroundTap
         bgView.isUserInteractionEnabled = !configuration.isPenetrable
+        bgView.removeTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
         if allowsBackgroundDismiss {
             bgView.addTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
         }
 
         if configuration.respectsSafeArea {
-            let insets = configuration.safeAreaInsets == .zero
-                ? TFYSwiftWindowHelper.safeAreaInsets
+            let safeAreaInsets = configuration.safeAreaInsets == .zero
+                ? container.safeAreaInsets
                 : configuration.safeAreaInsets
-            layoutMargins = insets
+            let contentInsets = configuration.containerConfiguration.contentInsets
+            layoutMargins = UIEdgeInsets(
+                top: max(safeAreaInsets.top, contentInsets.top),
+                left: max(safeAreaInsets.left, contentInsets.left),
+                bottom: max(safeAreaInsets.bottom, contentInsets.bottom),
+                right: max(safeAreaInsets.right, contentInsets.right)
+            )
         }
 
         container.addSubview(bgView)
@@ -201,16 +259,15 @@ open class TFYSwiftPopupView: UIView {
         setupDismissGestures(configuration: configuration)
         applyAccessibility(configuration: configuration)
 
-        if configuration.enablePriorityManagement {
-            // maxPopupCount 限制队列总量，不改变默认同时展示数
-            TFYSwiftPopupPriorityManager.shared.enforceMaxPopupCount(configuration.maxPopupCount)
-        }
-
         delegate?.popupViewWillAppear(self)
         isShowing = true
 
         animator.display(contentView: self, backgroundView: bgView, animated: animated) { [weak self] in
             guard let self else { return }
+            guard self.isShowing, !self.isDismissing else {
+                completion?()
+                return
+            }
             self.delegate?.popupViewDidAppear(self)
             completion?()
         }
@@ -249,16 +306,36 @@ open class TFYSwiftPopupView: UIView {
             }
         }
 
-        let selector = configuration.customContainerSelector
-            ?? TFYSwiftPopupContainerManager.shared.defaultContainerSelector()
+        let selector = resolvedContainerSelector(configuration: configuration)
         TFYSwiftPopupContainerManager.shared.selectBestContainer(selector: selector) { info, _ in
             if let view = info?.containerView {
-                finish(view)
+                self.finishContainerResolution(view, finish: finish)
             } else if configuration.allowContainerFallback {
-                finish(TFYSwiftPopupContainerManagerConvenience.getCurrentWindowContainer()?.containerView)
+                self.finishContainerResolution(
+                    TFYSwiftPopupContainerManagerConvenience.getCurrentWindowContainer()?.containerView,
+                    finish: finish
+                )
             } else {
-                finish(nil)
+                self.finishContainerResolution(nil, finish: finish)
             }
+        }
+    }
+
+    private func resolvedContainerSelector(configuration: TFYSwiftPopupViewConfiguration) -> TFYSwiftPopupContainerSelector {
+        if let customSelector = configuration.customContainerSelector {
+            return customSelector
+        }
+        let selector = TFYSwiftDefaultPopupContainerSelector(strategy: configuration.containerSelectionStrategy)
+        selector.preferWindowContainer = configuration.preferredContainerType == .window
+        selector.preferCurrentViewController = configuration.preferredContainerType == .viewController
+        return selector
+    }
+
+    private func finishContainerResolution(_ view: UIView?, finish: @escaping (UIView?) -> Void) {
+        if Thread.isMainThread {
+            finish(view)
+        } else {
+            DispatchQueue.main.async { finish(view) }
         }
     }
 
@@ -297,11 +374,32 @@ open class TFYSwiftPopupView: UIView {
             if let color = configuration.customThemeBackgroundColor {
                 backgroundColor = color
             }
-            if configuration.customThemeCornerRadius > 0 {
-                layer.cornerRadius = configuration.customThemeCornerRadius
-            }
         case .default:
             break
+        }
+    }
+
+    private func applyContainerAppearance(from configuration: TFYSwiftPopupViewConfiguration) {
+        let containerConfig = configuration.containerConfiguration
+        let themeRadius = configuration.theme == .custom ? configuration.customThemeCornerRadius : 0
+        let radius = configuration.cornerRadius > 0
+            ? configuration.cornerRadius
+            : max(themeRadius, containerConfig.cornerRadius)
+        layer.cornerRadius = radius
+        layoutMargins = containerConfig.contentInsets
+
+        if containerConfig.shadowEnabled {
+            layer.masksToBounds = false
+            layer.shadowColor = containerConfig.shadowColor.cgColor
+            layer.shadowOpacity = containerConfig.shadowOpacity
+            layer.shadowRadius = containerConfig.shadowRadius
+            layer.shadowOffset = containerConfig.shadowOffset
+        } else {
+            layer.masksToBounds = radius > 0
+            layer.shadowColor = nil
+            layer.shadowOpacity = 0
+            layer.shadowRadius = 0
+            layer.shadowOffset = .zero
         }
     }
 
@@ -376,6 +474,15 @@ open class TFYSwiftPopupView: UIView {
         }
     }
 
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        guard configuration.containerConfiguration.shadowEnabled else {
+            layer.shadowPath = nil
+            return
+        }
+        layer.shadowPath = UIBezierPath(roundedRect: bounds, cornerRadius: layer.cornerRadius).cgPath
+    }
+
     private func setupKeyboardHandling(configuration: TFYSwiftPopupViewConfiguration) {
         guard configuration.keyboardConfiguration.isEnabled else { return }
         let keyboardConfig = configuration.keyboardConfiguration
@@ -409,12 +516,15 @@ open class TFYSwiftPopupView: UIView {
         guard let userInfo = notification.userInfo,
               let frameValue = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue else { return }
 
-        let keyboardFrame = frameValue.cgRectValue
-        var keyboardHeight = keyboardFrame.height
-        if config.respectSafeArea {
-            keyboardHeight = max(0, keyboardHeight - TFYSwiftWindowHelper.safeAreaInsets.bottom)
-        }
-        let offset = keyboardHeight + config.additionalOffset
+        guard let container = superview else { return }
+        let keyboardFrame = container.convert(frameValue.cgRectValue, from: nil)
+        let popupFrame = convert(bounds, to: container)
+        let offset = TFYSwiftPopupLayoutHelper.keyboardAvoidanceOffset(
+            popupFrame: popupFrame,
+            keyboardFrame: keyboardFrame,
+            additionalOffset: config.additionalOffset,
+            safeAreaBottom: config.respectSafeArea ? container.safeAreaInsets.bottom : 0
+        )
 
         switch config.avoidingMode {
         case .transform:
@@ -430,15 +540,18 @@ open class TFYSwiftPopupView: UIView {
                 self.center = CGPoint(x: self.originalCenter.x, y: self.originalCenter.y - offset)
             }
         case .resize:
-            if originalBounds == .zero { originalBounds = bounds }
+            if originalBounds == .zero {
+                originalBounds = bounds
+                originalFrame = frame
+            }
             let minHeight: CGFloat = 80
-            let newHeight = max(minHeight, originalBounds.height - offset * 0.35)
+            let newHeight = max(minHeight, originalBounds.height - offset)
             UIView.animate(withDuration: config.animationDuration) { [weak self] in
                 guard let self else { return }
                 var frame = self.frame
                 frame.size.height = newHeight
                 if config.respectSafeArea {
-                    frame.origin.y = min(frame.origin.y, (self.superview?.bounds.height ?? frame.maxY) - newHeight - TFYSwiftWindowHelper.safeAreaInsets.bottom)
+                    frame.origin.y = min(frame.origin.y, container.bounds.height - newHeight - container.safeAreaInsets.bottom)
                 }
                 self.frame = frame
             }
@@ -457,10 +570,8 @@ open class TFYSwiftPopupView: UIView {
                 }
                 self.keyboardConstraintOffset = 0
             case .resize:
-                if self.originalBounds != .zero {
-                    var frame = self.frame
-                    frame.size = self.originalBounds.size
-                    self.frame = frame
+                if self.originalFrame != .zero {
+                    self.frame = self.originalFrame
                     self.bounds = self.originalBounds
                 }
             }
@@ -500,6 +611,24 @@ open class TFYSwiftPopupView: UIView {
         }
         dismissGestures.forEach { removeGestureRecognizer($0) }
         dismissGestures.removeAll()
+        backgroundView?.removeTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
+    }
+
+    private func completeDismiss(backgroundView: TFYSwiftPopupBackgroundView?, completion: (() -> Void)?) {
+        backgroundView?.removeTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
+        removeFromSuperview()
+        backgroundView?.removeFromSuperview()
+        isShowing = false
+        isDismissing = false
+        animator = nil
+        self.backgroundView = nil
+        containerView = nil
+        alpha = 1
+        transform = .identity
+        layer.transform = CATransform3DIdentity
+        TFYSwiftPopupPriorityManager.shared.remove(popup: self)
+        delegate?.popupViewDidDisappear(self)
+        completion?()
     }
 
     @objc private func backgroundTapped() {

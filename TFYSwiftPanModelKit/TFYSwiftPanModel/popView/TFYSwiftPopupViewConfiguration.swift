@@ -70,7 +70,8 @@ public final class TFYSwiftPopupViewConfiguration: NSObject, NSCopying {
 
     public var containerSelectionStrategy: TFYPopupContainerSelectionStrategy = .auto
     public var preferredContainerType: TFYPopupContainerType = .window
-    public weak var customContainerSelector: TFYSwiftPopupContainerSelector?
+    /// Retained for the full queued/async selection lifecycle.
+    public var customContainerSelector: TFYSwiftPopupContainerSelector?
     public var enableContainerAutoDiscovery = false
     public var allowContainerFallback = true
     public var containerSelectionTimeout: TimeInterval = 5.0
@@ -81,19 +82,21 @@ public final class TFYSwiftPopupViewConfiguration: NSObject, NSCopying {
 
     public func validate() -> Bool {
         if maxPopupCount <= 0 { return false }
-        if autoDismissDelay < 0 { return false }
-        if dragDismissThreshold < 0 || dragDismissThreshold > 1 { return false }
-        if animationDuration < 0 { return false }
-        if cornerRadius < 0 { return false }
-        if customThemeCornerRadius < 0 { return false }
-        if safeAreaInsets.top < 0 || safeAreaInsets.bottom < 0 ||
+        if !autoDismissDelay.isFinite || autoDismissDelay < 0 { return false }
+        if !dragDismissThreshold.isFinite || dragDismissThreshold < 0 || dragDismissThreshold > 1 { return false }
+        if !animationDuration.isFinite || animationDuration < 0 { return false }
+        if !cornerRadius.isFinite || cornerRadius < 0 { return false }
+        if !customThemeCornerRadius.isFinite || customThemeCornerRadius < 0 { return false }
+        if !safeAreaInsets.top.isFinite || !safeAreaInsets.bottom.isFinite ||
+           !safeAreaInsets.left.isFinite || !safeAreaInsets.right.isFinite ||
+           safeAreaInsets.top < 0 || safeAreaInsets.bottom < 0 ||
            safeAreaInsets.left < 0 || safeAreaInsets.right < 0 {
             return false
         }
         if enablePriorityManagement {
-            if maxWaitingTime < 0 { return false }
+            if !maxWaitingTime.isFinite || maxWaitingTime < 0 { return false }
         }
-        if containerSelectionTimeout < 0 { return false }
+        if !containerSelectionTimeout.isFinite || containerSelectionTimeout < 0 { return false }
         if !keyboardConfiguration.validate() { return false }
         if !containerConfiguration.validate() { return false }
         return true

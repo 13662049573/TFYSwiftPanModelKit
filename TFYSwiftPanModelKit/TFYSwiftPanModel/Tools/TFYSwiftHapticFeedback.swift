@@ -8,15 +8,13 @@
 import UIKit
 
 /// 触觉反馈工具类（按 style 缓存 generator，避免频繁分配）
+@MainActor
 public enum TFYSwiftHapticFeedback {
 
     private static var impactGenerators: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
     private static let selectionGenerator = UISelectionFeedbackGenerator()
     private static let notificationGenerator = UINotificationFeedbackGenerator()
-    private static let lock = NSLock()
-
     public static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
-        lock.lock()
         let generator: UIImpactFeedbackGenerator
         if let cached = impactGenerators[style] {
             generator = cached
@@ -24,7 +22,6 @@ public enum TFYSwiftHapticFeedback {
             generator = UIImpactFeedbackGenerator(style: style)
             impactGenerators[style] = generator
         }
-        lock.unlock()
         generator.prepare()
         generator.impactOccurred()
     }

@@ -14,15 +14,13 @@ public final class TFYSwiftPopupFadeInOutAnimator: TFYSwiftPopupBaseAnimator {
         super.setup(popupView: popupView, contentView: contentView, backgroundView: backgroundView)
         contentView.alpha = 0
         backgroundView.alpha = 0
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -35,17 +33,15 @@ public final class TFYSwiftPopupZoomInOutAnimator: TFYSwiftPopupBaseAnimator {
         contentView.alpha = 0
         backgroundView.alpha = 0
         contentView.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.transform = .identity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.transform = .identity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
-            weakContent.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
+            contentView?.transform = CGAffineTransform(scaleX: 0.3, y: 0.3)
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -70,18 +66,16 @@ public final class TFYSwiftPopup3DFlipAnimator: TFYSwiftPopupBaseAnimator {
         contentView.alpha = 0
         backgroundView.alpha = 0
         contentView.layer.transform = makeFlipTransform()
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.layer.transform = CATransform3DIdentity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.layer.transform = CATransform3DIdentity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = { [weak self] in
+        dismissAnimationBlock = { [weak self, weak contentView, weak backgroundView] in
             guard let self else { return }
-            weakContent.alpha = 0
-            weakContent.layer.transform = self.makeFlipTransform()
-            weakBg.alpha = 0
+            contentView?.alpha = 0
+            contentView?.layer.transform = self.makeFlipTransform()
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -108,17 +102,15 @@ public final class TFYSwiftPopupSpringAnimator: TFYSwiftPopupBaseAnimator {
         contentView.alpha = 0
         backgroundView.alpha = 0
         contentView.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.transform = .identity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.transform = .identity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
-            weakContent.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
+            contentView?.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -145,17 +137,15 @@ public final class TFYSwiftPopupBounceAnimator: TFYSwiftPopupBaseAnimator {
         contentView.alpha = 0
         backgroundView.alpha = 0
         contentView.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.transform = .identity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.transform = .identity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
-            weakContent.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
+            contentView?.transform = CGAffineTransform(scaleX: 0.1, y: 0.1)
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -174,17 +164,15 @@ public final class TFYSwiftPopupRotateAnimator: TFYSwiftPopupBaseAnimator {
         contentView.alpha = 0
         backgroundView.alpha = 0
         contentView.transform = CGAffineTransform(rotationAngle: -.pi)
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.transform = .identity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.transform = .identity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
-            weakContent.transform = CGAffineTransform(rotationAngle: .pi)
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
+            contentView?.transform = CGAffineTransform(rotationAngle: .pi)
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -202,17 +190,15 @@ public class TFYSwiftPopupDirectionalAnimator: TFYSwiftPopupBaseAnimator {
         contentView.transform = initial
         contentView.alpha = 0
         backgroundView.alpha = 0
-        let weakContent = contentView
-        let weakBg = backgroundView
-        displayAnimationBlock = {
-            weakContent.transform = .identity
-            weakContent.alpha = 1
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.transform = .identity
+            contentView?.alpha = 1
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.transform = initial
-            weakContent.alpha = 0
-            weakBg.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.transform = initial
+            contentView?.alpha = 0
+            backgroundView?.alpha = 0
         }
     }
 }
@@ -267,7 +253,7 @@ public final class TFYSwiftPopupSlideAnimator: TFYSwiftPopupBaseAnimator {
         super.setup(popupView: popupView, contentView: contentView, backgroundView: backgroundView)
         contentView.alpha = 0
         backgroundView.alpha = 0
-        let bounds = TFYSwiftWindowHelper.activeWindow?.bounds ?? UIScreen.main.bounds
+        let bounds = contentView.superview?.bounds ?? popupView.bounds
         let initial: CGAffineTransform
         switch direction {
         case .fromTop: initial = CGAffineTransform(translationX: 0, y: -bounds.height)
@@ -276,23 +262,21 @@ public final class TFYSwiftPopupSlideAnimator: TFYSwiftPopupBaseAnimator {
         case .fromRight: initial = CGAffineTransform(translationX: bounds.width, y: 0)
         }
         contentView.transform = initial
-        let weakContent = contentView
-        let weakBg = backgroundView
         let dir = direction
-        displayAnimationBlock = {
-            weakContent.alpha = 1
-            weakContent.transform = .identity
-            weakBg.alpha = 1
+        displayAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 1
+            contentView?.transform = .identity
+            backgroundView?.alpha = 1
         }
-        dismissAnimationBlock = {
-            weakContent.alpha = 0
+        dismissAnimationBlock = { [weak contentView, weak backgroundView] in
+            contentView?.alpha = 0
             switch dir {
-            case .fromTop: weakContent.transform = CGAffineTransform(translationX: 0, y: -bounds.height)
-            case .fromBottom: weakContent.transform = CGAffineTransform(translationX: 0, y: bounds.height)
-            case .fromLeft: weakContent.transform = CGAffineTransform(translationX: -bounds.width, y: 0)
-            case .fromRight: weakContent.transform = CGAffineTransform(translationX: bounds.width, y: 0)
+            case .fromTop: contentView?.transform = CGAffineTransform(translationX: 0, y: -bounds.height)
+            case .fromBottom: contentView?.transform = CGAffineTransform(translationX: 0, y: bounds.height)
+            case .fromLeft: contentView?.transform = CGAffineTransform(translationX: -bounds.width, y: 0)
+            case .fromRight: contentView?.transform = CGAffineTransform(translationX: bounds.width, y: 0)
             }
-            weakBg.alpha = 0
+            backgroundView?.alpha = 0
         }
     }
 }

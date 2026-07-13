@@ -23,7 +23,13 @@ public extension TFYSwiftPanModalFrequentTapPreventionDelegate {
 public final class TFYSwiftPanModalFrequentTapPrevention {
     public weak var delegate: TFYSwiftPanModalFrequentTapPreventionDelegate?
     public var enabled: Bool = true
-    public var preventionInterval: TimeInterval = 1
+    public var preventionInterval: TimeInterval = 1 {
+        didSet {
+            if preventionInterval < 0 {
+                preventionInterval = 0
+            }
+        }
+    }
     public var shouldShowHint: Bool = false
     public var hintText: String?
 
@@ -31,9 +37,10 @@ public final class TFYSwiftPanModalFrequentTapPrevention {
     public private(set) var remainingTime: TimeInterval = 0
 
     private var lastTriggerTime: TimeInterval = 0
+    private var resetWorkItem: DispatchWorkItem?
 
     public init(preventionInterval interval: TimeInterval) {
-        preventionInterval = interval
+        preventionInterval = max(0, interval)
     }
 
     public static func prevention(withInterval interval: TimeInterval) -> TFYSwiftPanModalFrequentTapPrevention {
@@ -42,7 +49,7 @@ public final class TFYSwiftPanModalFrequentTapPrevention {
 
     public func canExecute() -> Bool {
         guard enabled else { return true }
-        return CACurrentMediaTime() - lastTriggerTime >= preventionInterval
+        return preventionInterval <= 0 || CACurrentMediaTime() - lastTriggerTime >= preventionInterval
     }
 
     @discardableResult
@@ -54,16 +61,37 @@ public final class TFYSwiftPanModalFrequentTapPrevention {
     }
 
     public func triggerPrevention() {
+        resetWorkItem?.cancel()
+        guard enabled, preventionInterval > 0 else {
+            reset(notifyDelegate: false)
+            return
+        }
+
         lastTriggerTime = CACurrentMediaTime()
         isPrevented = true
         remainingTime = preventionInterval
         delegate?.frequentTapPreventionStateChanged(isPrevented: true, remainingTime: remainingTime)
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.reset()
+        }
+        resetWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + preventionInterval, execute: workItem)
     }
 
     public func reset() {
+        reset(notifyDelegate: true)
+    }
+
+    private func reset(notifyDelegate: Bool) {
+        resetWorkItem?.cancel()
+        resetWorkItem = nil
+        let wasPrevented = isPrevented
         isPrevented = false
         remainingTime = 0
-        delegate?.frequentTapPreventionStateChanged(isPrevented: false, remainingTime: 0)
+        if notifyDelegate, wasPrevented {
+            delegate?.frequentTapPreventionStateChanged(isPrevented: false, remainingTime: 0)
+        }
     }
 
     public var currentRemainingTime: TimeInterval {
@@ -74,4 +102,8 @@ public final class TFYSwiftPanModalFrequentTapPrevention {
 
     @available(*, deprecated, renamed: "currentRemainingTime")
     public func getRemainingTime() -> TimeInterval { currentRemainingTime }
+
+    deinit {
+        resetWorkItem?.cancel()
+    }
 }

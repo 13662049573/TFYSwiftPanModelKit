@@ -108,84 +108,217 @@ public class TFYSwiftPopupBaseAnimator: NSObject, TFYSwiftPopupViewAnimator {
         switch layout.type {
         case .center:
             if let center = layout.centerLayout {
-                setupCenterLayout(superView: superView, contentView: contentView, center: center)
+                setupCenterLayout(popupView: popupView, superView: superView, contentView: contentView, center: center)
             }
         case .top:
             if let top = layout.topLayout {
-                setupTopLayout(superView: superView, contentView: contentView, top: top)
+                setupTopLayout(popupView: popupView, superView: superView, contentView: contentView, top: top)
             }
         case .bottom:
             if let bottom = layout.bottomLayout {
-                setupBottomLayout(superView: superView, contentView: contentView, bottom: bottom)
+                setupBottomLayout(popupView: popupView, superView: superView, contentView: contentView, bottom: bottom)
             }
         case .leading:
             if let leading = layout.leadingLayout {
-                setupLeadingLayout(superView: superView, contentView: contentView, leading: leading)
+                setupLeadingLayout(popupView: popupView, superView: superView, contentView: contentView, leading: leading)
             }
         case .trailing:
             if let trailing = layout.trailingLayout {
-                setupTrailingLayout(superView: superView, contentView: contentView, trailing: trailing)
+                setupTrailingLayout(popupView: popupView, superView: superView, contentView: contentView, trailing: trailing)
             }
         case .frame:
             break
         }
 
+        applyContainerDimensions(
+            popupView.configuration.containerConfiguration,
+            superView: superView,
+            contentView: contentView
+        )
         NSLayoutConstraint.activate(layoutConstraints)
         superView.layoutIfNeeded()
     }
 
-    private func setupCenterLayout(superView: UIView, contentView: UIView, center: TFYSwiftPopupAnimatorLayoutCenter) {
-        layoutConstraints.append(contentView.centerXAnchor.constraint(equalTo: superView.centerXAnchor, constant: center.offsetX))
-        layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: superView.centerYAnchor, constant: center.offsetY))
+    private func setupCenterLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, center: TFYSwiftPopupAnimatorLayoutCenter) {
+        let respectsSafeArea = popupView.configuration.respectsSafeArea
+        let centerXAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.centerXAnchor : superView.centerXAnchor
+        let centerYAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.centerYAnchor : superView.centerYAnchor
+        let leadingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.leadingAnchor : superView.leadingAnchor
+        let trailingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.trailingAnchor : superView.trailingAnchor
+        let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
+        let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
+        layoutConstraints.append(contentView.centerXAnchor.constraint(equalTo: centerXAnchor, constant: center.offsetX))
+        layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: center.offsetY))
         if center.hasWidth { layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: center.width)) }
         if center.hasHeight { layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: center.height)) }
+
+        let insets = popupView.configuration.containerConfiguration.screenInsets
+        let boundaryConstraints = [
+            contentView.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: insets.left),
+            contentView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -insets.right),
+            contentView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: insets.top),
+            contentView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -insets.bottom),
+        ]
+        boundaryConstraints.forEach { $0.priority = UILayoutPriority(999) }
+        layoutConstraints.append(contentsOf: boundaryConstraints)
     }
 
-    private func setupTopLayout(superView: UIView, contentView: UIView, top: TFYSwiftPopupAnimatorLayoutTop) {
-        layoutConstraints.append(contentView.topAnchor.constraint(equalTo: superView.safeAreaLayoutGuide.topAnchor, constant: top.topMargin))
+    private func setupTopLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, top: TFYSwiftPopupAnimatorLayoutTop) {
+        let respectsSafeArea = popupView.configuration.respectsSafeArea
+        let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
+        let leadingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.leadingAnchor : superView.leadingAnchor
+        let trailingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.trailingAnchor : superView.trailingAnchor
+        layoutConstraints.append(contentView.topAnchor.constraint(equalTo: topAnchor, constant: top.topMargin))
         layoutConstraints.append(contentView.centerXAnchor.constraint(equalTo: superView.centerXAnchor, constant: top.offsetX))
         if top.hasWidth {
             layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: top.width))
         } else {
-            layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: superView.leadingAnchor))
-            layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: superView.trailingAnchor))
+            layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: leadingAnchor))
+            layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: trailingAnchor))
         }
         if top.hasHeight { layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: top.height)) }
     }
 
-    private func setupBottomLayout(superView: UIView, contentView: UIView, bottom: TFYSwiftPopupAnimatorLayoutBottom) {
-        layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: superView.bottomAnchor, constant: -bottom.bottomMargin))
+    private func setupBottomLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, bottom: TFYSwiftPopupAnimatorLayoutBottom) {
+        let respectsSafeArea = popupView.configuration.respectsSafeArea
+        let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
+        let leadingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.leadingAnchor : superView.leadingAnchor
+        let trailingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.trailingAnchor : superView.trailingAnchor
+        layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -bottom.bottomMargin))
         layoutConstraints.append(contentView.centerXAnchor.constraint(equalTo: superView.centerXAnchor, constant: bottom.offsetX))
         if bottom.hasWidth {
             layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: bottom.width))
         } else {
-            layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: superView.leadingAnchor))
-            layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: superView.trailingAnchor))
+            layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: leadingAnchor))
+            layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: trailingAnchor))
         }
         if bottom.hasHeight { layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: bottom.height)) }
     }
 
-    private func setupLeadingLayout(superView: UIView, contentView: UIView, leading: TFYSwiftPopupAnimatorLayoutLeading) {
-        layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: superView.leadingAnchor, constant: leading.leadingMargin))
+    private func setupLeadingLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, leading: TFYSwiftPopupAnimatorLayoutLeading) {
+        let respectsSafeArea = popupView.configuration.respectsSafeArea
+        let leadingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.leadingAnchor : superView.leadingAnchor
+        let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
+        let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
+        layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading.leadingMargin))
         layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: superView.centerYAnchor, constant: leading.offsetY))
         if leading.hasWidth { layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: leading.width)) }
         if !leading.hasHeight {
-            layoutConstraints.append(contentView.topAnchor.constraint(equalTo: superView.topAnchor))
-            layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: superView.bottomAnchor))
+            layoutConstraints.append(contentView.topAnchor.constraint(equalTo: topAnchor))
+            layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: bottomAnchor))
         } else {
             layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: leading.height))
         }
     }
 
-    private func setupTrailingLayout(superView: UIView, contentView: UIView, trailing: TFYSwiftPopupAnimatorLayoutTrailing) {
-        layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: superView.trailingAnchor, constant: -trailing.trailingMargin))
+    private func setupTrailingLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, trailing: TFYSwiftPopupAnimatorLayoutTrailing) {
+        let respectsSafeArea = popupView.configuration.respectsSafeArea
+        let trailingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.trailingAnchor : superView.trailingAnchor
+        let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
+        let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
+        layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -trailing.trailingMargin))
         layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: superView.centerYAnchor, constant: trailing.offsetY))
         if trailing.hasWidth { layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: trailing.width)) }
         if !trailing.hasHeight {
-            layoutConstraints.append(contentView.topAnchor.constraint(equalTo: superView.topAnchor))
-            layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: superView.bottomAnchor))
+            layoutConstraints.append(contentView.topAnchor.constraint(equalTo: topAnchor))
+            layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: bottomAnchor))
         } else {
             layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: trailing.height))
+        }
+    }
+
+    private func applyContainerDimensions(
+        _ configuration: TFYSwiftPopupContainerConfiguration,
+        superView: UIView,
+        contentView: UIView
+    ) {
+        if !layoutProvidesWidth {
+            if let constraint = dimensionConstraint(
+                configuration.width,
+                axis: .width,
+                superView: superView,
+                contentView: contentView
+            ) {
+                layoutConstraints.append(constraint)
+            }
+        }
+        if !layoutProvidesHeight,
+           let constraint = dimensionConstraint(
+               configuration.height,
+               axis: .height,
+               superView: superView,
+               contentView: contentView
+           ) {
+            layoutConstraints.append(constraint)
+        }
+
+        var bounds: [NSLayoutConstraint] = []
+        if configuration.hasMinWidth {
+            bounds.append(contentView.widthAnchor.constraint(greaterThanOrEqualToConstant: configuration.minWidth))
+        }
+        if configuration.hasMaxWidth {
+            bounds.append(contentView.widthAnchor.constraint(lessThanOrEqualToConstant: configuration.maxWidth))
+        }
+        if configuration.hasMinHeight {
+            bounds.append(contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: configuration.minHeight))
+        }
+        if configuration.hasMaxHeight {
+            bounds.append(contentView.heightAnchor.constraint(lessThanOrEqualToConstant: configuration.maxHeight))
+        }
+        bounds.forEach { $0.priority = UILayoutPriority(999) }
+        layoutConstraints.append(contentsOf: bounds)
+    }
+
+    private enum DimensionAxis {
+        case width
+        case height
+    }
+
+    private func dimensionConstraint(
+        _ dimension: TFYSwiftPopupContainerDimension,
+        axis: DimensionAxis,
+        superView: UIView,
+        contentView: UIView
+    ) -> NSLayoutConstraint? {
+        switch dimension.type {
+        case .automatic:
+            return nil
+        case .fixed:
+            switch axis {
+            case .width: return contentView.widthAnchor.constraint(equalToConstant: dimension.value)
+            case .height: return contentView.heightAnchor.constraint(equalToConstant: dimension.value)
+            }
+        case .ratio:
+            switch axis {
+            case .width: return contentView.widthAnchor.constraint(equalTo: superView.widthAnchor, multiplier: dimension.value)
+            case .height: return contentView.heightAnchor.constraint(equalTo: superView.heightAnchor, multiplier: dimension.value)
+            }
+        case .custom:
+            guard let value = dimension.customHandler?(superView), value.isFinite, value >= 0 else { return nil }
+            switch axis {
+            case .width: return contentView.widthAnchor.constraint(equalToConstant: value)
+            case .height: return contentView.heightAnchor.constraint(equalToConstant: value)
+            }
+        }
+    }
+
+    private var layoutProvidesWidth: Bool {
+        switch layout.type {
+        case .center: return layout.centerLayout?.hasWidth == true
+        case .top, .bottom: return true // Missing width means full-width for these layouts.
+        case .leading: return layout.leadingLayout?.hasWidth == true
+        case .trailing: return layout.trailingLayout?.hasWidth == true
+        case .frame: return true
+        }
+    }
+
+    private var layoutProvidesHeight: Bool {
+        switch layout.type {
+        case .center: return layout.centerLayout?.hasHeight == true
+        case .top: return layout.topLayout?.hasHeight == true
+        case .bottom: return layout.bottomLayout?.hasHeight == true
+        case .leading, .trailing: return true // Missing height means full-height for side layouts.
+        case .frame: return true
         }
     }
 }

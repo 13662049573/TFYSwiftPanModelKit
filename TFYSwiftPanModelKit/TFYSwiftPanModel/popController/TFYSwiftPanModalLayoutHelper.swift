@@ -38,19 +38,22 @@ enum TFYSwiftPanModalLayoutHelper {
         bottomLayoutOffset: CGFloat,
         intrinsicHeightProvider: (() -> CGFloat)?
     ) -> CGFloat {
+        let rawMargin: CGFloat
         switch panModalHeight.type {
         case .max:
-            return 0
+            rawMargin = 0
         case .topInset:
-            return panModalHeight.height
+            rawMargin = panModalHeight.height
         case .content:
-            return bottomYPos - (panModalHeight.height + bottomLayoutOffset)
+            rawMargin = bottomYPos - (panModalHeight.height + bottomLayoutOffset)
         case .contentIgnoringSafeArea:
-            return bottomYPos - panModalHeight.height
+            rawMargin = bottomYPos - panModalHeight.height
         case .intrinsic:
             let height = intrinsicHeightProvider?() ?? 0
-            return bottomYPos - (height + bottomLayoutOffset)
+            rawMargin = bottomYPos - (height + bottomLayoutOffset)
         }
+        guard rawMargin.isFinite, bottomYPos.isFinite else { return 0 }
+        return min(max(0, bottomYPos), max(0, rawMargin))
     }
 
     static func dragIndicatorFrame(containerWidth: CGFloat, indicatorSize: CGSize) -> CGRect {

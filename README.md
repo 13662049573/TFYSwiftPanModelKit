@@ -211,7 +211,7 @@ popup.show(in: window, animator: animator)
 
 支持四个方向：`.fromTop` / `.fromBottom` / `.fromLeft` / `.fromRight`
 
-### 5. PopupView — BottomSheet 手势面板
+### 6. PopupView — BottomSheet 手势面板
 
 ```swift
 let config = TFYSwiftPopupBottomSheetConfiguration()
@@ -365,6 +365,47 @@ class MyPopupDelegate: TFYSwiftPopupViewDelegate {
 }
 ```
 
+### 优先级策略
+
+优先级管理默认关闭；需要排队、替换或拒绝策略时显式开启：
+
+```swift
+let config = TFYSwiftPopupViewConfiguration()
+config.enablePriorityManagement = true
+config.priority = .high
+config.priorityStrategy = .queue
+config.canBeReplacedByHigherPriority = true
+config.maxWaitingTime = 10
+config.maxPopupCount = 10
+
+popup.show(in: window, animator: animator, configuration: config)
+```
+
+| 策略 | 行为 |
+|------|------|
+| `.queue` | 无可用展示槽时进入队列；更高优先级可替换允许被替换的弹窗 |
+| `.replace` | 强制关闭当前受管理弹窗并立即展示新弹窗 |
+| `.overlay` | 不受同时展示槽限制，直接叠加展示，但仍受总容量限制 |
+| `.reject` | 无可用槽位且不能替换时立即拒绝，不会静默入队 |
+
+同一个 `TFYSwiftPopupView` 不会被重复加入队列。`show`/`dismissAnimated`、`presentPopup` 和 PanModal 展示入口都可从任意线程调用，实际 UIKit 操作会统一切换到主线程。
+
+### 键盘与容器配置
+
+```swift
+let config = TFYSwiftPopupViewConfiguration()
+config.keyboardConfiguration.isEnabled = true
+config.keyboardConfiguration.avoidingMode = .transform // 也可使用 .constraint / .resize
+config.keyboardConfiguration.additionalOffset = 8
+
+config.containerSelectionStrategy = .smart
+config.preferredContainerType = .window
+config.containerConfiguration.cornerRadius = 18
+config.containerConfiguration.shadowEnabled = true
+```
+
+键盘避让按弹窗与键盘的实际重叠区域计算，兼容浮动键盘和非全屏容器。配置传入 `show` 前可调用 `validate()`；非有限数值、非法比例、负间距或无效队列容量会被拒绝。
+
 ---
 
 ## 项目结构
@@ -425,11 +466,20 @@ TFYSwiftPanModel/
 
 ---
 
+## 当前稳定性优化
+
+- 修复 App 非活跃状态调用 `presentPanModal` 时反复递归投递的问题，改为激活后单次恢复
+- 修复 Popup 重复入队、reject 静默排队、替换被 delegate 拦截后失管等队列一致性问题
+- Popup 多次复用时完整清理动画 transform、观察者、定时器、手势和背景点击 target
+- 键盘避让按实际遮挡面积计算，并补齐容器选择策略、圆角和阴影配置
+- 配置校验覆盖 `NaN` / infinity、尺寸比例、安全边距和等待时间
+- 新增队列、键盘布局、配置校验、自动防连点和 Popup 复用回归测试
+
 ## 1.1.0 更新说明（控制器 Popup）
 
 - **新增** `presentPopup`：任意 `UIViewController` 可用 PopupView 的 12 种动画弹出
 - **新增** `TFYSwiftPopupContentViewController` 基类，方便 override 尺寸/配置/动画器
-- **新增** `TFYSwiftPopupHostingView`：自动 `addChild` / `removeFromParent`，生命周期完整
+- **新增** `TFYSwiftPopupHostingView`：安全承载控制器视图并转发生命周期，避免 window 容器下的父子控制器层级断言
 - **关闭 API**：内容侧 `dismissPopup()` / `popupDismissAnimated()`，展示侧 `dismissPresentedPopup()`
 - 现有 PanModal / PopupView API 保持不变
 
@@ -439,7 +489,7 @@ TFYSwiftPanModel/
 - **功能补全**：`canBeReplacedByHigherPriority`、拖拽/滑动关闭、容器超时、无障碍、暗色模式跟随
 - **交互**：键盘/侧滑 transform 分层；侧滑 dismiss 水平离场；容器发现去掉 `main.sync` 死锁风险
 - **性能**：圆角 mask 复用、触觉反馈缓存、BottomSheet 拖拽布局优化
-- **测试**：新增 SPM 单元测试 target（打开 `Package.swift` 后运行 Test；Demo `.xcodeproj` 与 Package 并存时请直接打开 Package.swift。本机已验证：`xcodebuild -scheme TFYSwiftPanModelKit -destination 'platform=iOS Simulator,name=iPhone 17' test` → 13 tests passed）
+- **测试**：新增 SPM 单元测试 target；Demo `.xcodeproj` 与 Package 并存时，请在 Xcode 中直接打开 `Package.swift` 后运行 Test
 
 ---
 

@@ -27,6 +27,7 @@ public final class TFYSwiftPopupKeyboardConfiguration: NSObject, NSCopying {
     }
 
     public func validate() -> Bool {
+        guard additionalOffset.isFinite, animationDuration.isFinite else { return false }
         if additionalOffset < 0 || animationDuration < 0 { return false }
         if animationDuration > 5 || additionalOffset > 1000 { return false }
         return true

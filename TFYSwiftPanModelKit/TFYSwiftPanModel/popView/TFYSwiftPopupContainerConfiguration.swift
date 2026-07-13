@@ -80,6 +80,12 @@ public final class TFYSwiftPopupContainerConfiguration: NSObject, NSCopying {
     }
 
     public func validate() -> Bool {
+        guard validateDimension(width), validateDimension(height) else { return false }
+        let scalarValues = [maxWidth, maxHeight, minWidth, minHeight, cornerRadius, shadowRadius,
+                            contentInsets.top, contentInsets.left, contentInsets.bottom, contentInsets.right,
+                            screenInsets.top, screenInsets.left, screenInsets.bottom, screenInsets.right,
+                            shadowOffset.width, shadowOffset.height]
+        guard scalarValues.allSatisfy({ $0.isFinite }), shadowOpacity.isFinite else { return false }
         if hasMaxWidth, hasMinWidth, maxWidth < minWidth { return false }
         if hasMaxHeight, hasMinHeight, maxHeight < minHeight { return false }
         if hasMinWidth, minWidth < 0 { return false }
@@ -88,11 +94,26 @@ public final class TFYSwiftPopupContainerConfiguration: NSObject, NSCopying {
         if hasMaxHeight, maxHeight <= 0 { return false }
         if cornerRadius < 0 { return false }
         if contentInsets.top < 0 || contentInsets.bottom < 0 || contentInsets.left < 0 || contentInsets.right < 0 { return false }
+        if screenInsets.top < 0 || screenInsets.bottom < 0 || screenInsets.left < 0 || screenInsets.right < 0 { return false }
         if shadowEnabled, (shadowOpacity < 0 || shadowOpacity > 1 || shadowRadius < 0) { return false }
         if hasMaxWidth, maxWidth > 10000 { return false }
         if hasMaxHeight, maxHeight > 10000 { return false }
         if cornerRadius > 1000 { return false }
         return true
+    }
+
+    private func validateDimension(_ dimension: TFYSwiftPopupContainerDimension) -> Bool {
+        guard dimension.value.isFinite else { return false }
+        switch dimension.type {
+        case .fixed:
+            return dimension.value >= 0
+        case .automatic:
+            return true
+        case .ratio:
+            return dimension.value > 0 && dimension.value <= 1
+        case .custom:
+            return dimension.customHandler != nil
+        }
     }
 
     public func copy(with zone: NSZone? = nil) -> Any {

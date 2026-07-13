@@ -10,11 +10,48 @@ import ObjectiveC
 
 private nonisolated(unsafe) var panModalPresentationDelegateKey: UInt8 = 0
 private nonisolated(unsafe) var panModalFrequentTapPreventionKey: UInt8 = 0
+private nonisolated(unsafe) var panModalPendingPresentationKey: UInt8 = 0
+
+/// Keeps one deferred presentation alive without repeatedly rescheduling while the app is inactive.
+private final class TFYSwiftPendingPanModalPresentation: NSObject {
+    private var observer: NSObjectProtocol?
+    private var action: (() -> Void)?
+
+    init(action: @escaping () -> Void) {
+        self.action = action
+        super.init()
+        observer = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.perform()
+        }
+    }
+
+    func cancel() {
+        if let observer {
+            NotificationCenter.default.removeObserver(observer)
+            self.observer = nil
+        }
+        action = nil
+    }
+
+    private func perform() {
+        let pendingAction = action
+        cancel()
+        pendingAction?()
+    }
+
+    deinit {
+        cancel()
+    }
+}
 
 extension UIViewController: TFYSwiftPanModalPresenterProtocol {
 
     public var isPanModalPresented: Bool {
-        transitioningDelegate is TFYSwiftPanModalPresentationDelegate
+        presentingViewController != nil && transitioningDelegate is TFYSwiftPanModalPresentationDelegate
     }
 
     public var panPanModalPresentationDelegate: TFYSwiftPanModalPresentationDelegate! {
@@ -36,17 +73,50 @@ extension UIViewController: TFYSwiftPanModalPresenterProtocol {
         return prevention
     }
 
+    private var pendingPanModalPresentation: TFYSwiftPendingPanModalPresentation? {
+        get {
+            objc_getAssociatedObject(self, &panModalPendingPresentationKey) as? TFYSwiftPendingPanModalPresentation
+        }
+        set {
+            let previous = objc_getAssociatedObject(self, &panModalPendingPresentationKey) as? TFYSwiftPendingPanModalPresentation
+            if previous !== newValue {
+                previous?.cancel()
+            }
+            objc_setAssociatedObject(self, &panModalPendingPresentationKey, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+
     public func presentPanModal(_ viewControllerToPresent: UIViewController & TFYSwiftPanModalPresentable, sourceView: UIView?, sourceRect: CGRect) {
         presentPanModal(viewControllerToPresent, sourceView: sourceView, sourceRect: sourceRect, completion: nil)
     }
 
     public func presentPanModal(_ viewControllerToPresent: UIViewController & TFYSwiftPanModalPresentable, sourceView: UIView?, sourceRect: CGRect, completion: (() -> Void)?) {
-        if UIApplication.shared.applicationState != .active {
-            DispatchQueue.main.async {
-                self.presentPanModal(viewControllerToPresent, sourceView: sourceView, sourceRect: sourceRect, completion: completion)
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.presentPanModal(
+                    viewControllerToPresent,
+                    sourceView: sourceView,
+                    sourceRect: sourceRect,
+                    completion: completion
+                )
             }
             return
         }
+
+        if UIApplication.shared.applicationState != .active {
+            pendingPanModalPresentation = TFYSwiftPendingPanModalPresentation { [weak self] in
+                guard let self else { return }
+                self.pendingPanModalPresentation = nil
+                self.presentPanModal(
+                    viewControllerToPresent,
+                    sourceView: sourceView,
+                    sourceRect: sourceRect,
+                    completion: completion
+                )
+            }
+            return
+        }
+        pendingPanModalPresentation = nil
 
         let interval = viewControllerToPresent.frequentTapPreventionInterval()
         let prevention = panModalPresentFrequentTapPrevention
@@ -80,9 +150,7 @@ extension UIViewController: TFYSwiftPanModalPresenterProtocol {
             viewControllerToPresent.transitioningDelegate = delegate
         }
 
-        DispatchQueue.main.async {
-            self.present(viewControllerToPresent, animated: true, completion: completion)
-        }
+        present(viewControllerToPresent, animated: true, completion: completion)
     }
 
     public func presentPanModal(_ viewControllerToPresent: UIViewController & TFYSwiftPanModalPresentable) {
