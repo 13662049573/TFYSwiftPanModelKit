@@ -77,7 +77,7 @@ https://github.com/13662049573/TFYSwiftPanModelKit.git
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.0.0")
+    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.1.1")
 ]
 ```
 
@@ -479,7 +479,7 @@ TFYSwiftPanModel/
 - 配置校验覆盖 `NaN` / infinity、尺寸比例、安全边距和等待时间
 - 新增队列、键盘布局、配置校验、自动防连点和 Popup 复用回归测试
 
-## 1.1.0 更新说明（控制器 Popup）
+## 1.1.1 更新说明（控制器 Popup）
 
 - **新增** `presentPopup`：任意 `UIViewController` 可用 PopupView 的 12 种动画弹出
 - **新增** `TFYSwiftPopupContentViewController` 基类，方便 override 尺寸/配置/动画器
