@@ -2,14 +2,29 @@ Pod::Spec.new do |spec|
 
   spec.name         = "TFYSwiftPanModelKit"
   spec.version      = "1.1.1"
-  spec.summary      = "Swift PanModal 弹窗组件库，支持半屏/全屏弹窗、PopupView 动画弹窗、BottomSheet 等"
+  spec.summary      = "纯 Swift 弹窗库：PanModal 半屏 + PopupView 动画弹窗 + presentPopup 控制器弹出"
 
   spec.description  = <<-DESC
-    TFYSwiftPanModelKit 是一个纯 Swift 弹窗组件库，提供两大核心能力：
-    1. PanModal（popController）— 底部半屏弹窗，支持手势拖拽、多状态切换（Short/Medium/Long）、
-       ScrollView 联动、自定义背景/圆角/阴影/拖拽指示器，同时支持 ViewController 和 View 两种展示路径。
-    2. PopupView（popView）— 通用弹窗系统，内置 12 种动画效果（Fade/Zoom/Spring/Bounce/3DFlip/Rotate/Slide 等），
-       支持任意方向弹出、BottomSheet 手势面板、优先级队列、容器管理等。
+    TFYSwiftPanModelKit 是无第三方依赖的纯 Swift iOS 弹窗组件库（iOS 15+）。
+
+    架构分三层（可按 CocoaPods subspec 按需引入，彼此关系见下）：
+    • Tools — 窗口/安全区、KVO、UIView/UIScrollView 辅助、触感反馈
+    • popController — PanModal 底部半屏弹窗（依赖 Tools）
+    • popView — PopupView 通用弹窗 + presentPopup（依赖 Tools）
+    popController 与 popView 无交叉依赖；默认安装全部三层。
+
+    能力概览：
+    1. PanModal（popController）
+       - Short / Medium / Long 多状态 + 手势拖拽
+       - ScrollView 联动、自定义背景/圆角/阴影/指示器
+       - ViewController 路径（presentPanModal）与纯 View 路径（ContentView.present）
+    2. PopupView（popView）
+       - 12 种动画、6 种布局、BottomSheet 手势面板
+       - 优先级队列、容器发现、键盘避让、无障碍/暗色模式
+    3. presentPopup（同属 popView）
+       - 任意 UIViewController 以 PopupView 动画弹出
+       - TFYSwiftPopupPresentable 配置协议 + PopupContentViewController 基类
+       - TFYSwiftPopupHostingView 完整管理 child VC 生命周期
   DESC
 
   spec.homepage     = "https://github.com/13662049573/TFYSwiftPanModelKit"
@@ -24,26 +39,31 @@ Pod::Spec.new do |spec|
   spec.requires_arc = true
   spec.frameworks   = "UIKit", "Foundation"
 
-  # ――― 子模块按文件夹结构拆分 ――――――――――――――――――――――――――――――――――――――――――――――――――― #
+  # ――― 子模块（与源码目录 Tools / popController / popView 一一对应）―――――――――――― #
 
-  # 工具层 — KVO 观察器、UIView/UIScrollView 扩展、窗口/浮点辅助
+  # 工具层 — 被 popController、popView 共同依赖；一般无需单独安装
+  # 含：WindowHelper、KeyValueObserver、UIViewFrame、UIScrollViewHelper、HapticFeedback
   spec.subspec 'Tools' do |tools|
     tools.source_files = "TFYSwiftPanModelKit/TFYSwiftPanModel/Tools/**/*.swift"
   end
 
-  # PanModal 弹窗控制器层 — 半屏弹窗核心（协议、手势、布局、动画、Presenter）
+  # PanModal — 底部半屏弹窗（协议 / Presenter / PresentationController / 手势引擎）
+  # 入口：UIViewController.presentPanModal(_:) ，或 TFYSwiftPanModalContentView.present(in:)
+  # 用法：pod 'TFYSwiftPanModelKit/popController'
   spec.subspec 'popController' do |pc|
     pc.source_files = "TFYSwiftPanModelKit/TFYSwiftPanModel/popController/**/*.swift"
     pc.dependency "TFYSwiftPanModelKit/Tools"
   end
 
-  # PopupView 弹窗视图层 — 通用弹窗系统（动画器、布局、容器管理、优先级队列）
+  # PopupView — 通用弹窗 + presentPopup 控制器桥接
+  # 入口：TFYSwiftPopupView.show / UIViewController.presentPopup(_:)
+  # 用法：pod 'TFYSwiftPanModelKit/popView'
   spec.subspec 'popView' do |pv|
     pv.source_files = "TFYSwiftPanModelKit/TFYSwiftPanModel/popView/**/*.swift"
     pv.dependency "TFYSwiftPanModelKit/Tools"
   end
 
-  # 默认安装全部模块
+  # 默认安装全部模块（等价于 pod 'TFYSwiftPanModelKit'）
   spec.default_subspecs = 'Tools', 'popController', 'popView'
 
 end
