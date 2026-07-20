@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
 
   spec.name         = "TFYSwiftPanModelKit"
-  spec.version      = "1.1.1"
+  spec.version      = "1.1.2"
   spec.summary      = "纯 Swift 弹窗库：PanModal 半屏 + PopupView 动画弹窗 + presentPopup 控制器弹出"
 
   spec.description  = <<-DESC

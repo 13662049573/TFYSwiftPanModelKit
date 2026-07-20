@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT"/>
   <img src="https://img.shields.io/badge/SPM-compatible-brightgreen.svg" alt="SPM"/>
   <img src="https://img.shields.io/badge/CocoaPods-compatible-red.svg" alt="CocoaPods"/>
-  <img src="https://img.shields.io/badge/version-1.1.1-brightgreen.svg" alt="version"/>
+  <img src="https://img.shields.io/badge/version-1.1.2-brightgreen.svg" alt="version"/>
 </p>
 
 <p align="center">
@@ -118,7 +118,7 @@ https://github.com/13662049573/TFYSwiftPanModelKit.git
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.1.1")
+    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.1.2")
 ]
 ```
 
