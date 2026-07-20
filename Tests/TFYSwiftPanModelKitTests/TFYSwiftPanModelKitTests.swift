@@ -315,8 +315,37 @@ final class TFYSwiftPopupPriorityTests: XCTestCase {
         wait(for: [timeoutPassed], timeout: 1)
         XCTAssertTrue(manager.waitingQueue().contains { $0.popupView === queued })
 
+        let queueUpdated = expectation(forNotification: .tfyPopupQueueDidUpdate, object: manager)
         manager.clearExpiredWaitingPopups()
+        wait(for: [queueUpdated], timeout: 1)
         XCTAssertFalse(manager.waitingQueue().contains { $0.popupView === queued })
+    }
+
+    func testPopupsWithPriorityIncludesDisplayedAndWaitingItems() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        let displayed = TFYSwiftPopupView(frame: .zero)
+        let waiting = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: displayed,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+        XCTAssertTrue(manager.requestShow(
+            popup: waiting,
+            priority: .normal,
+            strategy: .queue,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+
+        let popups = manager.popups(withPriority: .normal)
+        XCTAssertEqual(popups.count, 2)
+        XCTAssertTrue(popups.contains { $0 === displayed })
+        XCTAssertTrue(popups.contains { $0 === waiting })
     }
 
     func testReplaceStrategyFreesCapacityForIncomingPopup() {

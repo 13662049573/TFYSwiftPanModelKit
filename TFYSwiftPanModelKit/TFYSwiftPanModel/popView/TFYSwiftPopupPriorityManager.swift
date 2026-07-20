@@ -288,8 +288,10 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
 
     public func popups(withPriority priority: TFYPopupPriority) -> [TFYSwiftPopupView] {
         queue.sync {
-            let items = internalWaitingQueue.filter { $0.priority == priority }
-            return items.compactMap { $0.popupView }
+            displayedPopups.filter { popupPriority(for: $0) == priority }
+                + internalWaitingQueue
+                    .filter { $0.priority == priority }
+                    .compactMap { $0.popupView }
         }
     }
 
@@ -313,8 +315,13 @@ public final class TFYSwiftPopupPriorityManager: NSObject {
     }
 
     public func clearExpiredWaitingPopups() {
-        queue.sync(flags: .barrier) {
+        let didRemove = queue.sync(flags: .barrier) { () -> Bool in
+            let oldCount = internalWaitingQueue.count
             clearExpiredWaitingPopupsInternal()
+            return oldCount != internalWaitingQueue.count
+        }
+        if didRemove {
+            NotificationCenter.default.post(name: .tfyPopupQueueDidUpdate, object: self)
         }
         processNext()
     }
