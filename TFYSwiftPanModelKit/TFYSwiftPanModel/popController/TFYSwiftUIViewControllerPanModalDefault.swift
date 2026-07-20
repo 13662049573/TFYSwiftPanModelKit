@@ -45,7 +45,7 @@ extension UIViewController: TFYSwiftPanModalPresentable {
     @objc open func shouldAutoSetPanScrollContentInset() -> Bool { true }
     @objc open func anchorModalToLongForm() -> Bool { true }
     @objc open func allowsExtendedPanScrolling() -> Bool {
-        guard let scroll = panScrollable() else { return false }
+        guard let scroll = panScrollable(), scroll.superview != nil, scroll.window != nil else { return false }
         scroll.layoutIfNeeded()
         return scroll.contentSize.height > (scroll.frame.height - bottomLayoutOffset)
     }

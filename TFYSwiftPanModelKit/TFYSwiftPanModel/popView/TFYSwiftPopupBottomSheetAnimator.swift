@@ -11,7 +11,8 @@ import UIKit
 public final class TFYSwiftPopupBottomSheetConfiguration: NSObject, NSCopying {
     public var defaultHeight: CGFloat = 300
     public var minimumHeight: CGFloat = 100
-    public var maximumHeight: CGFloat = TFYSwiftWindowHelper.screenHeight
+    /// 0 表示展示时使用实际容器高度，适配多窗口和启动早期尚无 key window 的场景。
+    public var maximumHeight: CGFloat = 0
     public var allowsFullScreen = true
     public var snapToDefaultThreshold: CGFloat = 80
     public var springDamping: CGFloat = 0.8
@@ -22,6 +23,16 @@ public final class TFYSwiftPopupBottomSheetConfiguration: NSObject, NSCopying {
 
     public override init() {
         super.init()
+    }
+
+    public func validate() -> Bool {
+        let values = [defaultHeight, minimumHeight, maximumHeight, snapToDefaultThreshold,
+                      springDamping, springVelocity, CGFloat(animationDuration), cornerRadius]
+        guard values.allSatisfy({ $0.isFinite }) else { return false }
+        guard defaultHeight >= 0, minimumHeight >= 0, maximumHeight >= 0,
+              snapToDefaultThreshold >= 0, springDamping >= 0, springDamping <= 1,
+              springVelocity >= 0, animationDuration >= 0, cornerRadius >= 0 else { return false }
+        return maximumHeight == 0 || minimumHeight <= maximumHeight
     }
 
     public func copy(with zone: NSZone? = nil) -> Any {
@@ -49,9 +60,11 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
     private var panGesture: UIPanGestureRecognizer?
     private var currentHeight: CGFloat = 0
     private var isDragging = false
-    private var initialTouchPoint: CGPoint = .zero
     private var heightConstraint: NSLayoutConstraint?
     private var bottomConstraint: NSLayoutConstraint?
+    private var resolvedMinimumHeight: CGFloat = 0
+    private var resolvedDefaultHeight: CGFloat = 0
+    private var resolvedMaximumHeight: CGFloat = 0
 
     public init(configuration: TFYSwiftPopupBottomSheetConfiguration) {
         guard let copied = configuration.copy(with: nil) as? TFYSwiftPopupBottomSheetConfiguration else {
@@ -88,7 +101,7 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
         self.popupView = popupView
         self.contentView = contentView
         self.backgroundView = backgroundView
-        contentView.layer.cornerRadius = configuration.cornerRadius
+        contentView.layer.cornerRadius = finiteNonnegative(configuration.cornerRadius)
         contentView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         contentView.clipsToBounds = true
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -100,11 +113,11 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
 
     public func refreshLayout(popupView: TFYSwiftPopupView, contentView: UIView) {
         guard let hc = heightConstraint, !isDragging else { return }
-        let clampedDefault = min(max(configuration.defaultHeight, configuration.minimumHeight), configuration.maximumHeight)
+        resolveHeights(in: contentView.superview ?? popupView)
         if hc.constant <= 0 {
-            hc.constant = clampedDefault
+            hc.constant = resolvedDefaultHeight
         } else {
-            hc.constant = min(max(hc.constant, configuration.minimumHeight), configuration.maximumHeight)
+            hc.constant = min(max(hc.constant, resolvedMinimumHeight), resolvedMaximumHeight)
         }
     }
 
@@ -114,12 +127,12 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
             return
         }
         let layoutTarget = pv.superview ?? pv
-        bc.constant = configuration.defaultHeight
-        hc.constant = configuration.defaultHeight
+        bc.constant = resolvedDefaultHeight
+        hc.constant = resolvedDefaultHeight
         backgroundView.alpha = 0
         layoutTarget.layoutIfNeeded()
         if animated {
-            UIView.animate(withDuration: configuration.animationDuration, delay: 0, usingSpringWithDamping: configuration.springDamping, initialSpringVelocity: configuration.springVelocity, options: .curveEaseOut) {
+            UIView.animate(withDuration: resolvedAnimationDuration, delay: 0, usingSpringWithDamping: resolvedSpringDamping, initialSpringVelocity: resolvedSpringVelocity, options: .curveEaseOut) {
                 bc.constant = 0
                 backgroundView.alpha = 1
                 layoutTarget.layoutIfNeeded()
@@ -139,13 +152,13 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
         }
         let layoutTarget = pv.superview ?? pv
         if animated {
-            UIView.animate(withDuration: configuration.animationDuration, delay: 0, options: .curveEaseIn) {
-                bc.constant = self.configuration.defaultHeight
+            UIView.animate(withDuration: resolvedAnimationDuration, delay: 0, options: .curveEaseIn) {
+                bc.constant = self.resolvedDefaultHeight
                 backgroundView.alpha = 0
                 layoutTarget.layoutIfNeeded()
             } completion: { _ in completion() }
         } else {
-            bc.constant = configuration.defaultHeight
+            bc.constant = resolvedDefaultHeight
             backgroundView.alpha = 0
             layoutTarget.layoutIfNeeded()
             completion()
@@ -156,16 +169,17 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
 
     private func setupLayout(popupView: TFYSwiftPopupView, contentView: UIView) {
         let anchorView: UIView = contentView.superview ?? popupView
-        let hc = contentView.heightAnchor.constraint(equalToConstant: configuration.defaultHeight)
-        let bc = contentView.bottomAnchor.constraint(equalTo: anchorView.bottomAnchor, constant: configuration.defaultHeight)
+        resolveHeights(in: anchorView)
+        let hc = contentView.heightAnchor.constraint(equalToConstant: resolvedDefaultHeight)
+        let bc = contentView.bottomAnchor.constraint(equalTo: anchorView.bottomAnchor, constant: resolvedDefaultHeight)
         heightConstraint = hc
         bottomConstraint = bc
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: anchorView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: anchorView.trailingAnchor),
             bc, hc,
-            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: configuration.minimumHeight),
-            contentView.heightAnchor.constraint(lessThanOrEqualToConstant: configuration.maximumHeight)
+            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: resolvedMinimumHeight),
+            contentView.heightAnchor.constraint(lessThanOrEqualToConstant: resolvedMaximumHeight)
         ])
         hc.priority = .defaultHigh
         bc.priority = .required
@@ -189,23 +203,22 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
         switch gesture.state {
         case .began:
             isDragging = true
-            initialTouchPoint = gesture.location(in: pv)
             currentHeight = hc.constant
         case .changed:
             let dragOffset = translation.y
             if dragOffset < 0 {
-                let newHeight = min(currentHeight - dragOffset, configuration.maximumHeight)
+                let newHeight = min(currentHeight - dragOffset, resolvedMaximumHeight)
                 hc.constant = newHeight
                 bc.constant = 0
             } else {
-                if currentHeight > configuration.defaultHeight {
-                    let newHeight = max(currentHeight - dragOffset, configuration.defaultHeight)
+                if currentHeight > resolvedDefaultHeight {
+                    let newHeight = max(currentHeight - dragOffset, resolvedDefaultHeight)
                     hc.constant = newHeight
                     bc.constant = 0
                 } else {
-                    let newOffset = min(dragOffset, configuration.defaultHeight)
+                    let newOffset = min(dragOffset, resolvedDefaultHeight)
                     bc.constant = newOffset
-                    hc.constant = configuration.defaultHeight
+                    hc.constant = resolvedDefaultHeight
                 }
             }
             pv.setNeedsLayout()
@@ -214,16 +227,16 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
             isDragging = false
             let currentOffset = bc.constant
             let currentHeightValue = hc.constant
-            if currentOffset > configuration.minimumHeight || velocity.y > 500 {
+            if currentOffset > resolvedMinimumHeight || velocity.y > 500 {
                 pv.dismissAnimated(true, completion: nil)
                 return
             }
             if velocity.y < -500 && configuration.allowsFullScreen {
-                animateToHeight(configuration.maximumHeight, popupView: pv)
-            } else if currentHeightValue > configuration.defaultHeight + configuration.snapToDefaultThreshold {
-                animateToHeight(configuration.maximumHeight, popupView: pv)
+                animateToHeight(resolvedMaximumHeight, popupView: pv)
+            } else if currentHeightValue > resolvedDefaultHeight + finiteNonnegative(configuration.snapToDefaultThreshold) {
+                animateToHeight(resolvedMaximumHeight, popupView: pv)
             } else {
-                animateToHeight(configuration.defaultHeight, popupView: pv)
+                animateToHeight(resolvedDefaultHeight, popupView: pv)
             }
         default:
             break
@@ -233,7 +246,7 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
     private func animateToHeight(_ height: CGFloat, popupView pv: TFYSwiftPopupView) {
         guard let hc = heightConstraint, let bc = bottomConstraint else { return }
         let layoutTarget = pv.superview ?? pv
-        UIView.animate(withDuration: configuration.animationDuration, delay: 0, usingSpringWithDamping: configuration.springDamping, initialSpringVelocity: configuration.springVelocity, options: .curveEaseOut) {
+        UIView.animate(withDuration: resolvedAnimationDuration, delay: 0, usingSpringWithDamping: resolvedSpringDamping, initialSpringVelocity: resolvedSpringVelocity, options: .curveEaseOut) {
             hc.constant = height
             bc.constant = 0
             layoutTarget.layoutIfNeeded()
@@ -242,11 +255,59 @@ public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupView
 
     // MARK: - UIGestureRecognizerDelegate
 
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
+              let contentView else { return true }
+        let velocity = pan.velocity(in: contentView)
+        guard abs(velocity.y) > abs(velocity.x) else { return false }
+
+        var touchedView = contentView.hitTest(pan.location(in: contentView), with: nil)
+        while let view = touchedView {
+            if let scrollView = view as? UIScrollView {
+                let top = -scrollView.adjustedContentInset.top
+                if velocity.y > 0, scrollView.contentOffset.y > top + 0.5 { return false }
+                if velocity.y < 0, (heightConstraint?.constant ?? resolvedDefaultHeight) >= resolvedMaximumHeight - 0.5 { return false }
+                break
+            }
+            touchedView = view.superview
+        }
+        return true
+    }
+
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
         other.view is UIScrollView
     }
 
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
         false
+    }
+
+    private func resolveHeights(in container: UIView) {
+        let configuredDefault = finiteNonnegative(configuration.defaultHeight)
+        let configuredMinimum = finiteNonnegative(configuration.minimumHeight)
+        let fallback = max(max(configuredDefault, configuredMinimum), 1)
+        let available = container.bounds.height.isFinite && container.bounds.height > 0
+            ? container.bounds.height
+            : max(TFYSwiftWindowHelper.screenHeight, fallback)
+        let configuredMaximum = finiteNonnegative(configuration.maximumHeight)
+        resolvedMaximumHeight = configuredMaximum > 0 ? min(configuredMaximum, available) : available
+        resolvedMinimumHeight = min(configuredMinimum, resolvedMaximumHeight)
+        resolvedDefaultHeight = min(max(configuredDefault, resolvedMinimumHeight), resolvedMaximumHeight)
+    }
+
+    private func finiteNonnegative(_ value: CGFloat) -> CGFloat {
+        value.isFinite ? max(0, value) : 0
+    }
+
+    private var resolvedAnimationDuration: TimeInterval {
+        configuration.animationDuration.isFinite ? max(0, configuration.animationDuration) : 0.35
+    }
+
+    private var resolvedSpringDamping: CGFloat {
+        min(1, finiteNonnegative(configuration.springDamping))
+    }
+
+    private var resolvedSpringVelocity: CGFloat {
+        finiteNonnegative(configuration.springVelocity)
     }
 }

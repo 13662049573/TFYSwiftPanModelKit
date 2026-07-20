@@ -131,6 +131,7 @@ final class TFYSwiftPopupPriorityTests: XCTestCase {
         let manager = TFYSwiftPopupPriorityManager.shared
         manager.clearAllQueues()
         manager.maxSimultaneousPopups = 1
+        manager.autoCleanupExpiredPopups = true
         manager.enforceMaxPopupCount(0)
     }
 
@@ -138,6 +139,7 @@ final class TFYSwiftPopupPriorityTests: XCTestCase {
         let manager = TFYSwiftPopupPriorityManager.shared
         manager.clearAllQueues()
         manager.maxSimultaneousPopups = 1
+        manager.autoCleanupExpiredPopups = true
         manager.enforceMaxPopupCount(0)
         super.tearDown()
     }
@@ -193,6 +195,156 @@ final class TFYSwiftPopupPriorityTests: XCTestCase {
         XCTAssertEqual(manager.totalQueueCount(), 1)
     }
 
+    func testQueuedPopupIsRetainedUntilItLeavesQueue() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        let blocker = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: blocker,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+
+        weak var queuedReference: TFYSwiftPopupView?
+        autoreleasepool {
+            let queued = TFYSwiftPopupView(frame: .zero)
+            queuedReference = queued
+            XCTAssertTrue(manager.requestShow(
+                popup: queued,
+                priority: .normal,
+                strategy: .queue,
+                maxWaitingTime: 0,
+                canBeReplaced: false,
+                showBlock: {}
+            ))
+        }
+
+        XCTAssertNotNil(queuedReference)
+        XCTAssertTrue(manager.waitingQueue().contains { $0.popupView === queuedReference })
+    }
+
+    func testWaitingQueueSortsByPriorityAndPreservesFIFO() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        let blocker = TFYSwiftPopupView(frame: .zero)
+        let firstLow = TFYSwiftPopupView(frame: .zero)
+        let urgent = TFYSwiftPopupView(frame: .zero)
+        let secondLow = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: blocker,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+
+        for (popup, priority) in [(firstLow, TFYPopupPriority.low), (urgent, .urgent), (secondLow, .low)] {
+            XCTAssertTrue(manager.requestShow(
+                popup: popup,
+                priority: priority,
+                strategy: .queue,
+                maxWaitingTime: 0,
+                canBeReplaced: false,
+                showBlock: {}
+            ))
+        }
+
+        let waiting = manager.waitingQueue()
+        XCTAssertEqual(waiting.count, 3)
+        XCTAssertTrue(waiting[0].popupView === urgent)
+        XCTAssertTrue(waiting[1].popupView === firstLow)
+        XCTAssertTrue(waiting[2].popupView === secondLow)
+    }
+
+    func testWaitingTimeoutDoesNotUntrackPopupAfterItStartsShowing() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        let blocker = TFYSwiftPopupView(frame: .zero)
+        let queued = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: blocker,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+        XCTAssertTrue(manager.requestShow(
+            popup: queued,
+            priority: .normal,
+            strategy: .queue,
+            maxWaitingTime: 0.05,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+
+        manager.remove(popup: blocker)
+        XCTAssertTrue(manager.currentDisplayedPopups().contains { $0 === queued })
+
+        let timeoutPassed = expectation(description: "waiting timeout passed")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { timeoutPassed.fulfill() }
+        wait(for: [timeoutPassed], timeout: 1)
+        XCTAssertTrue(manager.currentDisplayedPopups().contains { $0 === queued })
+    }
+
+    func testAutomaticExpiryCleanupCanBeDisabled() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        manager.autoCleanupExpiredPopups = false
+        let blocker = TFYSwiftPopupView(frame: .zero)
+        let queued = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: blocker,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+        XCTAssertTrue(manager.requestShow(
+            popup: queued,
+            priority: .normal,
+            strategy: .queue,
+            maxWaitingTime: 0.01,
+            canBeReplaced: false,
+            showBlock: {}
+        ))
+
+        let timeoutPassed = expectation(description: "waiting item expired")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { timeoutPassed.fulfill() }
+        wait(for: [timeoutPassed], timeout: 1)
+        XCTAssertTrue(manager.waitingQueue().contains { $0.popupView === queued })
+
+        manager.clearExpiredWaitingPopups()
+        XCTAssertFalse(manager.waitingQueue().contains { $0.popupView === queued })
+    }
+
+    func testReplaceStrategyFreesCapacityForIncomingPopup() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        manager.enforceMaxPopupCount(1)
+        let existing = TFYSwiftPopupView(frame: .zero)
+        let incoming = TFYSwiftPopupView(frame: .zero)
+        XCTAssertTrue(manager.requestShow(
+            popup: existing,
+            priority: .low,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: true,
+            showBlock: {}
+        ))
+
+        XCTAssertTrue(manager.requestShow(
+            popup: incoming,
+            priority: .urgent,
+            strategy: .replace,
+            maxWaitingTime: 0,
+            canBeReplaced: true,
+            showBlock: {}
+        ))
+        XCTAssertEqual(manager.currentDisplayedPopups().count, 1)
+        XCTAssertTrue(manager.currentDisplayedPopups().first === incoming)
+    }
+
     func testRejectStrategyDoesNotSilentlyQueue() {
         let manager = TFYSwiftPopupPriorityManager.shared
         let existing = TFYSwiftPopupView(frame: .zero)
@@ -230,9 +382,44 @@ final class TFYSwiftPopupPriorityTests: XCTestCase {
         )
         XCTAssertEqual(manager.currentHighestPriority(), .critical)
     }
+
+    func testRemovingScheduledPopupCancelsItsShowBlock() {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        let popup = TFYSwiftPopupView(frame: .zero)
+        var didShow = false
+
+        XCTAssertTrue(manager.requestShow(
+            popup: popup,
+            priority: .normal,
+            strategy: .overlay,
+            maxWaitingTime: 0,
+            canBeReplaced: true,
+            showBlock: { didShow = true }
+        ))
+        manager.remove(popup: popup)
+
+        let drainedMainQueue = expectation(description: "main queue drained")
+        DispatchQueue.main.async { drainedMainQueue.fulfill() }
+        wait(for: [drainedMainQueue], timeout: 1)
+        XCTAssertFalse(didShow)
+    }
 }
 
 final class TFYSwiftPopupLayoutTests: XCTestCase {
+
+    private final class DeferredDismissAnimator: TFYSwiftPopupViewAnimator {
+        private var dismissal: (() -> Void)?
+
+        func setup(popupView: TFYSwiftPopupView, contentView: UIView, backgroundView: TFYSwiftPopupBackgroundView) {}
+        func refreshLayout(popupView: TFYSwiftPopupView, contentView: UIView) {}
+        func display(contentView: UIView, backgroundView: TFYSwiftPopupBackgroundView, animated: Bool, completion: @escaping () -> Void) {
+            completion()
+        }
+        func dismiss(contentView: UIView, backgroundView: TFYSwiftPopupBackgroundView, animated: Bool, completion: @escaping () -> Void) {
+            dismissal = completion
+        }
+        func finishDismissal() { dismissal?() }
+    }
 
     func testKeyboardAvoidanceUsesActualOverlap() {
         let offset = TFYSwiftPopupLayoutHelper.keyboardAvoidanceOffset(
@@ -277,9 +464,84 @@ final class TFYSwiftPopupLayoutTests: XCTestCase {
         XCTAssertTrue(CATransform3DEqualToTransform(popup.layer.transform, CATransform3DIdentity))
         popup.dismissAnimated(false)
     }
+
+    func testRepeatedDismissCompletionsWaitForActualDismissal() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let popup = TFYSwiftPopupView(frame: .zero)
+        let animator = DeferredDismissAnimator()
+        popup.show(in: container, animator: animator, animated: false)
+
+        var completions = 0
+        popup.dismissAnimated(true) { completions += 1 }
+        popup.dismissAnimated(true) { completions += 1 }
+        XCTAssertEqual(completions, 0)
+
+        animator.finishDismissal()
+        XCTAssertEqual(completions, 2)
+        XCTAssertFalse(popup.isShowing)
+    }
+
+    func testBottomSheetUsesContainerHeightWhenMaximumIsAutomatic() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 600))
+        let popup = TFYSwiftPopupView(frame: .zero)
+        let config = TFYSwiftPopupBottomSheetConfiguration()
+        config.defaultHeight = 300
+        config.minimumHeight = 100
+        config.maximumHeight = 0
+        let animator = TFYSwiftPopupBottomSheetAnimator(configuration: config)
+
+        popup.show(in: container, animator: animator, animated: false)
+        let heightConstraints = popup.constraints.filter {
+            $0.firstItem === popup && $0.firstAttribute == .height
+        }
+        XCTAssertTrue(heightConstraints.contains { $0.relation == .equal && $0.constant == 300 })
+        XCTAssertTrue(heightConstraints.contains { $0.relation == .greaterThanOrEqual && $0.constant == 100 })
+        XCTAssertTrue(heightConstraints.contains { $0.relation == .lessThanOrEqual && $0.constant == 600 })
+        popup.dismissAnimated(false)
+    }
+
+    func testFullHeightLeadingLayoutDoesNotAlsoConstrainCenterY() {
+        let container = UIView(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let popup = TFYSwiftPopupView(frame: .zero)
+        let animator = TFYSwiftPopupSlideAnimator(
+            direction: .fromLeft,
+            layout: .leading(.layout(leadingMargin: 0, offsetY: 0, width: 280))
+        )
+
+        popup.show(in: container, animator: animator, animated: false)
+        let popupConstraints = container.constraints.filter {
+            $0.firstItem === popup || $0.secondItem === popup
+        }
+        XCTAssertTrue(popupConstraints.contains { $0.firstAttribute == .top || $0.secondAttribute == .top })
+        XCTAssertTrue(popupConstraints.contains { $0.firstAttribute == .bottom || $0.secondAttribute == .bottom })
+        XCTAssertFalse(popupConstraints.contains { $0.firstAttribute == .centerY || $0.secondAttribute == .centerY })
+        popup.dismissAnimated(false)
+    }
+}
+
+final class TFYSwiftPopupContainerTests: XCTestCase {
+
+    func testAvailabilityTracksWindowAttachmentAndVisibility() {
+        let view = UIView(frame: .zero)
+        let info = TFYSwiftPopupContainerInfo.viewContainer(view, name: "dynamic")
+        XCTAssertFalse(info.isAvailable)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        window.isHidden = false
+        window.addSubview(view)
+        XCTAssertTrue(info.isAvailable)
+
+        window.isHidden = true
+        XCTAssertFalse(info.isAvailable)
+    }
 }
 
 final class TFYSwiftPanModalHeightTests: XCTestCase {
+
+    private final class DetachedScrollableViewController: UIViewController {
+        let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 320, height: 100))
+        override func panScrollable() -> UIScrollView? { scrollView }
+    }
 
     func testTopMarginHelper() {
         let content = TFYSwiftPanModalLayoutHelper.topMargin(
@@ -322,6 +584,12 @@ final class TFYSwiftPanModalHeightTests: XCTestCase {
         XCTAssertTrue(CGFloat(1.0).isNearlyEqual(to: 1.00005))
         XCTAssertFalse(CGFloat(1.0).isNearlyEqual(to: 2.0))
     }
+
+    func testExtendedScrollingDoesNotInspectDetachedScrollView() {
+        let viewController = DetachedScrollableViewController()
+        viewController.scrollView.contentSize.height = 1_000
+        XCTAssertFalse(viewController.allowsExtendedPanScrolling())
+    }
 }
 
 final class TFYSwiftKeyboardModeTests: XCTestCase {
@@ -337,6 +605,22 @@ final class TFYSwiftKeyboardModeTests: XCTestCase {
         XCTAssertEqual(TFYPopupKeyboardAvoidingMode.transform.rawValue, 0)
         XCTAssertEqual(TFYPopupKeyboardAvoidingMode.constraint.rawValue, 1)
         XCTAssertEqual(TFYPopupKeyboardAvoidingMode.resize.rawValue, 2)
+    }
+}
+
+final class TFYSwiftBottomSheetConfigurationTests: XCTestCase {
+
+    func testValidationAndAutomaticMaximumHeight() {
+        let config = TFYSwiftPopupBottomSheetConfiguration()
+        XCTAssertEqual(config.maximumHeight, 0)
+        XCTAssertTrue(config.validate())
+
+        config.springDamping = 1.1
+        XCTAssertFalse(config.validate())
+        config.springDamping = 0.8
+        config.minimumHeight = 400
+        config.maximumHeight = 300
+        XCTAssertFalse(config.validate())
     }
 }
 

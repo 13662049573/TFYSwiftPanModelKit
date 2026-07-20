@@ -49,6 +49,7 @@ open class TFYSwiftPopupView: UIView {
     private var keyboardConstraintOffset: CGFloat = 0
     private var dismissGestures: [UIGestureRecognizer] = []
     private var isDismissing = false
+    private var dismissalCompletions: [() -> Void] = []
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -165,24 +166,25 @@ open class TFYSwiftPopupView: UIView {
             return
         }
         guard !isDismissing else {
-            completion?()
+            if let completion { dismissalCompletions.append(completion) }
             return
         }
 
         if !force, delegate?.popupViewShouldDismiss(self) == false { return }
 
+        if let completion { dismissalCompletions.append(completion) }
         isDismissing = true
         invalidateObserversAndTimers()
         delegate?.popupViewWillDisappear(self)
 
         guard let animator, let bgView = backgroundView else {
-            completeDismiss(backgroundView: backgroundView, completion: completion)
+            completeDismiss(backgroundView: backgroundView)
             return
         }
 
         animator.dismiss(contentView: self, backgroundView: bgView, animated: animated) { [weak self] in
             guard let self else { return }
-            self.completeDismiss(backgroundView: bgView, completion: completion)
+            self.completeDismiss(backgroundView: bgView)
         }
     }
 
@@ -614,7 +616,7 @@ open class TFYSwiftPopupView: UIView {
         backgroundView?.removeTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
     }
 
-    private func completeDismiss(backgroundView: TFYSwiftPopupBackgroundView?, completion: (() -> Void)?) {
+    private func completeDismiss(backgroundView: TFYSwiftPopupBackgroundView?) {
         backgroundView?.removeTarget(self, action: #selector(backgroundTapped), for: .touchUpInside)
         removeFromSuperview()
         backgroundView?.removeFromSuperview()
@@ -628,7 +630,9 @@ open class TFYSwiftPopupView: UIView {
         layer.transform = CATransform3DIdentity
         TFYSwiftPopupPriorityManager.shared.remove(popup: self)
         delegate?.popupViewDidDisappear(self)
-        completion?()
+        let completions = dismissalCompletions
+        dismissalCompletions.removeAll()
+        completions.forEach { $0() }
     }
 
     @objc private func backgroundTapped() {

@@ -198,15 +198,16 @@ public class TFYSwiftPopupBaseAnimator: NSObject, TFYSwiftPopupViewAnimator {
     private func setupLeadingLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, leading: TFYSwiftPopupAnimatorLayoutLeading) {
         let respectsSafeArea = popupView.configuration.respectsSafeArea
         let leadingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.leadingAnchor : superView.leadingAnchor
+        let centerYAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.centerYAnchor : superView.centerYAnchor
         let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
         let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
         layoutConstraints.append(contentView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leading.leadingMargin))
-        layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: superView.centerYAnchor, constant: leading.offsetY))
         if leading.hasWidth { layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: leading.width)) }
         if !leading.hasHeight {
             layoutConstraints.append(contentView.topAnchor.constraint(equalTo: topAnchor))
             layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: bottomAnchor))
         } else {
+            layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: leading.offsetY))
             layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: leading.height))
         }
     }
@@ -214,15 +215,16 @@ public class TFYSwiftPopupBaseAnimator: NSObject, TFYSwiftPopupViewAnimator {
     private func setupTrailingLayout(popupView: TFYSwiftPopupView, superView: UIView, contentView: UIView, trailing: TFYSwiftPopupAnimatorLayoutTrailing) {
         let respectsSafeArea = popupView.configuration.respectsSafeArea
         let trailingAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.trailingAnchor : superView.trailingAnchor
+        let centerYAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.centerYAnchor : superView.centerYAnchor
         let topAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.topAnchor : superView.topAnchor
         let bottomAnchor = respectsSafeArea ? superView.safeAreaLayoutGuide.bottomAnchor : superView.bottomAnchor
         layoutConstraints.append(contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -trailing.trailingMargin))
-        layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: superView.centerYAnchor, constant: trailing.offsetY))
         if trailing.hasWidth { layoutConstraints.append(contentView.widthAnchor.constraint(equalToConstant: trailing.width)) }
         if !trailing.hasHeight {
             layoutConstraints.append(contentView.topAnchor.constraint(equalTo: topAnchor))
             layoutConstraints.append(contentView.bottomAnchor.constraint(equalTo: bottomAnchor))
         } else {
+            layoutConstraints.append(contentView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: trailing.offsetY))
             layoutConstraints.append(contentView.heightAnchor.constraint(equalToConstant: trailing.height))
         }
     }

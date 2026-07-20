@@ -216,6 +216,7 @@ popup.show(in: window, animator: animator)
 ```swift
 let config = TFYSwiftPopupBottomSheetConfiguration()
 config.defaultHeight = 350
+config.maximumHeight = 0          // 0 = 展示时使用当前容器高度（多窗口安全）
 config.enableGestures = true        // 开启拖拽手势
 config.cornerRadius = 16
 config.allowsFullScreen = true      // 允许上拉全屏
@@ -418,7 +419,7 @@ TFYSwiftPanModel/
 │   ├── TFYSwiftUIScrollViewHelper  # UIScrollView 滚动状态
 │   └── TFYSwiftWindowHelper        # 全局窗口/安全区域工具
 │
-├── popController/                  # PanModal 弹窗控制器（28 个文件）
+├── popController/                  # PanModal 弹窗控制器（30 个文件）
 │   ├── Protocol
 │   │   ├── TFYSwiftPanModalPresentable           # 核心配置协议（40+ 可选配置）
 │   │   ├── TFYSwiftPanModalPresenterProtocol      # Presenter 协议
@@ -442,7 +443,7 @@ TFYSwiftPanModel/
 │       ├── TFYSwiftPanIndicatorView               # 默认拖拽指示器
 │       └── TFYSwiftVisualEffectView               # 自定义模糊视图
 │
-└── popView/                        # PopupView 弹窗视图（14 个文件）
+└── popView/                        # PopupView 弹窗视图（18 个文件）
     ├── Core
     │   ├── TFYSwiftPopupView                      # 弹窗核心（show/dismiss 生命周期）
     │   ├── TFYSwiftPopupViewAnimator              # 动画器协议
@@ -468,6 +469,9 @@ TFYSwiftPanModel/
 
 ## 当前稳定性优化
 
+- 优先级队列不再用固定延迟猜测展示结果；取消待展示弹窗后不会继续执行遗留 showBlock，并发请求也会原子遵守同时展示上限
+- BottomSheet 高度在展示时按实际容器解析，支持启动早期和多窗口；嵌套 ScrollView 优先消费未到顶部的下拉手势
+- 重复调用 `dismissAnimated` 时，所有 completion 都会等真实关闭结束；容器可用性随挂载和窗口显隐实时更新
 - 修复 App 非活跃状态调用 `presentPanModal` 时反复递归投递的问题，改为激活后单次恢复
 - 修复 Popup 重复入队、reject 静默排队、替换被 delegate 拦截后失管等队列一致性问题
 - Popup 多次复用时完整清理动画 transform、观察者、定时器、手势和背景点击 target
@@ -501,6 +505,20 @@ TFYSwiftPanModel/
 | Swift | 5.0+ |
 | Xcode | 15.0+ |
 | 依赖 | 无第三方依赖 |
+
+### 本地验证
+
+本库依赖 UIKit，直接执行 `swift test` 会按 macOS 宿主编译并报 `no such module 'UIKit'`。使用 iOS Simulator SDK 编译库与测试：
+
+```bash
+SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+swift build --build-tests --sdk "$SDK" --triple arm64-apple-ios15.0-simulator
+xcodebuild -project TFYSwiftPanModelKit.xcodeproj \
+  -scheme TFYSwiftPanModelKit \
+  -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
+```
 
 ---
 

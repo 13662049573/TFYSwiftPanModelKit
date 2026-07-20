@@ -7,99 +7,226 @@
 
 import UIKit
 
-final class ViewController: UITableViewController {
+final class ViewController: UITableViewController, UISearchResultsUpdating, TFYSwiftPopupViewDelegate {
 
-    private let sections: [(title: String, items: [(title: String, action: Selector)])] = [
-        ("PanModal - ViewController 弹窗", [
-            ("基础半屏弹窗 (Short)", #selector(showBasicShort)),
-            ("中等高度弹窗 (Medium)", #selector(showMedium)),
-            ("全屏弹窗 (Long)", #selector(showLong)),
-            ("带 ScrollView 列表弹窗", #selector(showScrollable)),
-            ("自定义背景+圆角+阴影", #selector(showCustomStyle)),
-            ("边缘滑动关闭", #selector(showEdgeInteractive)),
-            ("防频繁点击 (快速连点)", #selector(showFrequentTap)),
+    private struct DemoItem {
+        let title: String
+        let detail: String
+        let symbol: String
+        let action: Selector
+    }
+
+    private struct DemoSection {
+        let title: String
+        let items: [DemoItem]
+    }
+
+    private lazy var allSections: [DemoSection] = [
+        DemoSection(title: "PanModal · 状态与滚动", items: [
+            DemoItem(title: "Short 半屏", detail: "250pt 内容高度，拖拽与背景关闭", symbol: "rectangle.bottomhalf.inset.filled", action: #selector(showBasicShort)),
+            DemoItem(title: "Medium 中屏", detail: "400pt 初始高度，支持三态切换", symbol: "rectangle.split.2x1", action: #selector(showMedium)),
+            DemoItem(title: "Long 全屏", detail: "Short / Medium / Long 按钮与状态回调", symbol: "rectangle.inset.filled", action: #selector(showLong)),
+            DemoItem(title: "ScrollView 联动", detail: "列表滚动与面板拖拽手势协调", symbol: "list.bullet.rectangle", action: #selector(showScrollable)),
+            DemoItem(title: "纯 UIView PanModal", detail: "无需 UIViewController 的展示与关闭", symbol: "square.on.square", action: #selector(showContentView)),
         ]),
-        ("PanModal - View 弹窗 (无需 VC)", [
-            ("View 弹窗展示", #selector(showContentView)),
+        DemoSection(title: "PanModal · 交互与视觉", items: [
+            DemoItem(title: "自定义背景、圆角与阴影", detail: "Blur、20pt 圆角和内容阴影", symbol: "wand.and.stars", action: #selector(showCustomStyle)),
+            DemoItem(title: "PageSheet 父页面动画", detail: "presentingVCAnimationStyle = pageSheet", symbol: "rectangle.stack", action: #selector(showPageSheetStyle)),
+            DemoItem(title: "ShoppingCart 父页面动画", detail: "展示父控制器缩放转场", symbol: "cart", action: #selector(showShoppingCartStyle)),
+            DemoItem(title: "禁止手势与背景关闭", detail: "仍可通过按钮安全地代码关闭", symbol: "lock", action: #selector(showLockedPanModal)),
+            DemoItem(title: "键盘自动避让", detail: "输入框、键盘偏移与面板布局更新", symbol: "keyboard", action: #selector(showPanModalKeyboard)),
+            DemoItem(title: "屏幕边缘交互关闭", detail: "从左边缘向右滑动关闭", symbol: "arrow.right.to.line", action: #selector(showEdgeInteractive)),
+            DemoItem(title: "防频繁点击", detail: "快速重复触发、提示和触觉反馈", symbol: "hand.raised", action: #selector(showFrequentTap)),
         ]),
-        ("PopupView - 居中弹窗动画", [
-            ("FadeInOut 渐变", #selector(popFade)),
-            ("ZoomInOut 缩放", #selector(popZoom)),
-            ("Spring 弹簧", #selector(popSpring)),
-            ("Bounce 弹跳", #selector(popBounce)),
-            ("3D Flip 翻转", #selector(pop3DFlip)),
-            ("Rotate 旋转", #selector(popRotate)),
+        DemoSection(title: "PopupView · 居中动画", items: [
+            DemoItem(title: "FadeInOut", detail: "透明度渐入渐出", symbol: "circle.lefthalf.filled", action: #selector(popFade)),
+            DemoItem(title: "ZoomInOut", detail: "中心缩放", symbol: "arrow.up.left.and.arrow.down.right", action: #selector(popZoom)),
+            DemoItem(title: "Spring", detail: "阻尼弹簧动画", symbol: "waveform.path", action: #selector(popSpring)),
+            DemoItem(title: "Bounce", detail: "弹跳入场和离场", symbol: "circle.grid.cross", action: #selector(popBounce)),
+            DemoItem(title: "3D Flip", detail: "三维翻转动画", symbol: "view.3d", action: #selector(pop3DFlip)),
+            DemoItem(title: "Rotate", detail: "旋转缩放动画", symbol: "arrow.clockwise", action: #selector(popRotate)),
         ]),
-        ("PopupView - 方向滑入弹窗", [
-            ("从底部滑入", #selector(slideBottom)),
-            ("从顶部滑入", #selector(slideTop)),
-            ("从左侧滑入", #selector(slideLeft)),
-            ("从右侧滑入", #selector(slideRight)),
+        DemoSection(title: "PopupView · 方向与滑入", items: [
+            DemoItem(title: "Slide 从底部", detail: "Bottom 布局与 fromBottom 动画", symbol: "arrow.up", action: #selector(slideBottom)),
+            DemoItem(title: "Slide 从顶部", detail: "Top 布局与 fromTop 动画", symbol: "arrow.down", action: #selector(slideTop)),
+            DemoItem(title: "Slide 从左侧", detail: "Leading 布局与 fromLeft 动画", symbol: "arrow.right", action: #selector(slideLeft)),
+            DemoItem(title: "Slide 从右侧", detail: "Trailing 布局与 fromRight 动画", symbol: "arrow.left", action: #selector(slideRight)),
+            DemoItem(title: "Directional Upward", detail: "TFYSwiftPopupUpwardAnimator", symbol: "arrow.up.circle", action: #selector(showUpwardPopup)),
+            DemoItem(title: "Directional Downward", detail: "TFYSwiftPopupDownwardAnimator", symbol: "arrow.down.circle", action: #selector(showDownwardPopup)),
+            DemoItem(title: "Directional Leftward", detail: "TFYSwiftPopupLeftwardAnimator", symbol: "arrow.left.circle", action: #selector(showLeftwardPopup)),
+            DemoItem(title: "Directional Rightward", detail: "TFYSwiftPopupRightwardAnimator", symbol: "arrow.right.circle", action: #selector(showRightwardPopup)),
         ]),
-        ("PopupView - 底部面板 (BottomSheet)", [
-            ("BottomSheet (可拖拽)", #selector(showBottomSheet)),
+        DemoSection(title: "PopupView · BottomSheet", items: [
+            DemoItem(title: "BottomSheet 基础拖拽", detail: "自动容器高度、吸附和下滑关闭", symbol: "rectangle.bottomthird.inset.filled", action: #selector(showBottomSheet)),
+            DemoItem(title: "BottomSheet 嵌套滚动", detail: "内部 ScrollView 与面板手势优先级", symbol: "scroll", action: #selector(showScrollableBottomSheet)),
         ]),
-        ("presentPopup - 控制器居中动画", [
-            ("Fade 弹出控制器", #selector(showPopupVCFade)),
-            ("Zoom 弹出控制器", #selector(showPopupVCZoom)),
-            ("Spring 弹出控制器", #selector(showPopupVCSpring)),
-            ("Bounce 弹出控制器", #selector(showPopupVCBounce)),
-            ("3D Flip 弹出控制器", #selector(showPopupVCFlip)),
-            ("Rotate 弹出控制器", #selector(showPopupVCRotate)),
+        DemoSection(title: "presentPopup · 控制器动画", items: [
+            DemoItem(title: "VC Fade", detail: "UIViewController 渐变弹出", symbol: "circle.lefthalf.filled", action: #selector(showPopupVCFade)),
+            DemoItem(title: "VC Zoom", detail: "UIViewController 缩放弹出", symbol: "arrow.up.left.and.arrow.down.right", action: #selector(showPopupVCZoom)),
+            DemoItem(title: "VC Spring", detail: "UIViewController 弹簧弹出", symbol: "waveform.path", action: #selector(showPopupVCSpring)),
+            DemoItem(title: "VC Bounce", detail: "UIViewController 弹跳弹出", symbol: "circle.grid.cross", action: #selector(showPopupVCBounce)),
+            DemoItem(title: "VC 3D Flip", detail: "UIViewController 三维翻转", symbol: "view.3d", action: #selector(showPopupVCFlip)),
+            DemoItem(title: "VC Rotate", detail: "UIViewController 旋转弹出", symbol: "arrow.clockwise", action: #selector(showPopupVCRotate)),
+            DemoItem(title: "VC 从底部滑入", detail: "控制器 Bottom 布局", symbol: "arrow.up", action: #selector(showPopupVCSlideBottom)),
+            DemoItem(title: "VC 从顶部滑入", detail: "控制器 Top 布局", symbol: "arrow.down", action: #selector(showPopupVCSlideTop)),
+            DemoItem(title: "VC 从左侧滑入", detail: "控制器 Leading 布局", symbol: "arrow.right", action: #selector(showPopupVCSlideLeft)),
+            DemoItem(title: "VC 从右侧滑入", detail: "控制器 Trailing 布局", symbol: "arrow.left", action: #selector(showPopupVCSlideRight)),
         ]),
-        ("presentPopup - 控制器方向滑入", [
-            ("从底部滑入控制器", #selector(showPopupVCSlideBottom)),
-            ("从顶部滑入控制器", #selector(showPopupVCSlideTop)),
-            ("从左侧滑入控制器", #selector(showPopupVCSlideLeft)),
-            ("从右侧滑入控制器", #selector(showPopupVCSlideRight)),
+        DemoSection(title: "presentPopup · 完整能力", items: [
+            DemoItem(title: "模糊背景 + Bounce", detail: "preferredPopupConfiguration / Animator", symbol: "aqi.medium", action: #selector(showPopupVCConfigured)),
+            DemoItem(title: "不可手势关闭", detail: "isDismissible = false，按钮代码关闭", symbol: "lock", action: #selector(showPopupVCNonDismissible)),
+            DemoItem(title: "拖拽与滑动关闭", detail: "dragDismissThreshold 与 Swipe", symbol: "hand.draw", action: #selector(showPopupVCDragSwipe)),
+            DemoItem(title: "键盘避让 · Transform", detail: "整体变换避让键盘", symbol: "keyboard", action: #selector(showPopupVCKeyboardTransform)),
+            DemoItem(title: "键盘避让 · Constraint", detail: "约束偏移避让键盘", symbol: "keyboard", action: #selector(showPopupVCKeyboardConstraint)),
+            DemoItem(title: "键盘避让 · Resize", detail: "调整可用区域避让键盘", symbol: "keyboard", action: #selector(showPopupVCKeyboardResize)),
+            DemoItem(title: "背景触摸穿透", detail: "isPenetrable = true", symbol: "square.dashed", action: #selector(showPopupVCPenetrable)),
+            DemoItem(title: "2 秒自动关闭", detail: "autoDismissDelay 生命周期", symbol: "timer", action: #selector(showPopupVCAutoDismiss)),
+            DemoItem(title: "VoiceOver 无障碍", detail: "焦点、标签与关闭按钮", symbol: "accessibility", action: #selector(showPopupVCAccessibility)),
         ]),
-        ("presentPopup - 控制器高级能力", [
-            ("自定义配置控制器 (模糊+Bounce)", #selector(showPopupVCConfigured)),
-            ("不可关闭控制器 (代码关闭)", #selector(showPopupVCNonDismissible)),
-            ("拖拽/滑动关闭控制器", #selector(showPopupVCDragSwipe)),
-            ("键盘避让 transform", #selector(showPopupVCKeyboardTransform)),
-            ("键盘避让 constraint", #selector(showPopupVCKeyboardConstraint)),
-            ("键盘避让 resize", #selector(showPopupVCKeyboardResize)),
-            ("穿透背景控制器", #selector(showPopupVCPenetrable)),
-            ("自动关闭控制器 (2s)", #selector(showPopupVCAutoDismiss)),
-            ("无障碍控制器弹窗", #selector(showPopupVCAccessibility)),
+        DemoSection(title: "PopupView · 配置、容器与生命周期", items: [
+            DemoItem(title: "模糊背景配置", detail: "Blur、圆角、触觉和背景点击", symbol: "aqi.medium", action: #selector(showConfiguredPopup)),
+            DemoItem(title: "渐变背景", detail: "backgroundStyle = gradient", symbol: "square.fill.on.square.fill", action: #selector(showGradientPopup)),
+            DemoItem(title: "容器外观", detail: "内容边距、圆角、阴影和自定义主题", symbol: "square.resize", action: #selector(showContainerAppearancePopup)),
+            DemoItem(title: "Smart 容器自动发现", detail: "nil 容器、自动发现与回退", symbol: "scope", action: #selector(showAutoDiscoveredPopup)),
+            DemoItem(title: "生命周期 Delegate", detail: "Will/Did Appear 与 Dismiss 回调", symbol: "point.3.connected.trianglepath.dotted", action: #selector(showLifecyclePopup)),
+            DemoItem(title: "暗色模式动态刷新", detail: "Theme 与 Blur 随 Trait 更新", symbol: "circle.righthalf.filled", action: #selector(showDarkModePopup)),
+            DemoItem(title: "纯 View 不可关闭", detail: "直接使用 TFYSwiftPopupView", symbol: "lock.square", action: #selector(showNonDismissiblePopup)),
+            DemoItem(title: "纯 View 拖拽关闭", detail: "直接验证拖动和横向滑动", symbol: "hand.draw", action: #selector(showDragSwipeDismissPopup)),
         ]),
-        ("PopupView - 高级功能", [
-            ("配置化弹窗 (模糊背景)", #selector(showConfiguredPopup)),
-            ("优先级队列弹窗", #selector(showPriorityPopup)),
-            ("优先级替换 (High→Urgent)", #selector(showPriorityReplace)),
-            ("优先级 Overlay 叠加", #selector(showPriorityOverlay)),
-            ("不可关闭弹窗 (代码关闭)", #selector(showNonDismissiblePopup)),
-            ("拖拽/滑动关闭弹窗", #selector(showDragSwipeDismissPopup)),
-            ("暗色模式跟随验证", #selector(showDarkModePopup)),
-            ("方向动画 (Upward)", #selector(showUpwardPopup)),
+        DemoSection(title: "PopupView · 优先级策略", items: [
+            DemoItem(title: "Queue 同级 FIFO", detail: "相同优先级严格按 1 → 2 → 3 展示", symbol: "list.number", action: #selector(showPriorityFIFO)),
+            DemoItem(title: "Queue 优先级排序", detail: "Urgent 后入队但先于 Low 展示", symbol: "arrow.up.arrow.down", action: #selector(showPriorityOrdering)),
+            DemoItem(title: "Replace 高优先级替换", detail: "Urgent 替换可被替换的 Low", symbol: "arrow.triangle.2.circlepath", action: #selector(showPriorityReplace)),
+            DemoItem(title: "Overlay 叠加", detail: "Normal 与 High 同时显示", symbol: "square.stack.3d.up", action: #selector(showPriorityOverlay)),
+            DemoItem(title: "Reject 拒绝策略", detail: "容量已满时拒绝第二个展示", symbol: "nosign", action: #selector(showPriorityReject)),
         ]),
     ]
+
+    private var sections: [DemoSection] = []
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var didPositionCatalog = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "TFYSwiftPanModelKit"
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
+        sections = allSections
         navigationController?.navigationBar.prefersLargeTitles = true
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 72
+        tableView.keyboardDismissMode = .onDrag
+        tableView.tableHeaderView = makeCatalogHeader()
+
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "搜索动画、交互或 API"
+        searchController.searchBar.accessibilityIdentifier = "demo.search"
+        navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = false
+        definesPresentationContext = true
+
         // 防止历史会话中卡住的优先级队列影响新演示
         TFYSwiftPopupPriorityManager.shared.clearAllQueues()
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !didPositionCatalog else { return }
+        didPositionCatalog = true
+        tableView.setContentOffset(CGPoint(x: 0, y: -tableView.adjustedContentInset.top), animated: false)
+    }
+
     override func numberOfSections(in tableView: UITableView) -> Int { sections.count }
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { sections[section].items.count }
-    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? { sections[section].title }
+    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        "\(sections[section].title) · \(sections[section].items.count)"
+    }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        cell.textLabel?.text = sections[indexPath.section].items[indexPath.row].title
+        let cell = tableView.dequeueReusableCell(withIdentifier: "DemoCell")
+            ?? UITableViewCell(style: .subtitle, reuseIdentifier: "DemoCell")
+        let item = sections[indexPath.section].items[indexPath.row]
+        var content = cell.defaultContentConfiguration()
+        content.text = item.title
+        content.secondaryText = item.detail
+        content.secondaryTextProperties.color = .secondaryLabel
+        content.secondaryTextProperties.numberOfLines = 2
+        content.image = UIImage(systemName: item.symbol)
+        content.imageProperties.tintColor = .systemIndigo
+        content.imageProperties.maximumSize = CGSize(width: 28, height: 28)
+        cell.contentConfiguration = content
         cell.accessoryType = .disclosureIndicator
-        cell.textLabel?.numberOfLines = 2
+        cell.isAccessibilityElement = true
+        cell.accessibilityTraits.insert(.button)
+        cell.accessibilityLabel = item.title
+        cell.accessibilityHint = item.detail
+        cell.accessibilityIdentifier = "demo.\(NSStringFromSelector(item.action))"
         return cell
     }
 
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         perform(sections[indexPath.section].items[indexPath.row].action)
+    }
+
+    func updateSearchResults(for searchController: UISearchController) {
+        let query = searchController.searchBar.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !query.isEmpty else {
+            sections = allSections
+            tableView.backgroundView = nil
+            tableView.reloadData()
+            return
+        }
+        sections = allSections.compactMap { section in
+            let matches = section.items.filter {
+                section.title.localizedCaseInsensitiveContains(query)
+                    || $0.title.localizedCaseInsensitiveContains(query)
+                    || $0.detail.localizedCaseInsensitiveContains(query)
+            }
+            return matches.isEmpty ? nil : DemoSection(title: section.title, items: matches)
+        }
+        let empty = UILabel()
+        empty.text = "没有匹配的 Demo"
+        empty.textColor = .secondaryLabel
+        empty.textAlignment = .center
+        tableView.backgroundView = sections.isEmpty ? empty : nil
+        tableView.reloadData()
+    }
+
+    private func makeCatalogHeader() -> UIView {
+        let count = allSections.reduce(0) { $0 + $1.items.count }
+        let header = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 116))
+        let card = UIView()
+        card.backgroundColor = .secondarySystemGroupedBackground
+        card.layer.cornerRadius = 18
+        card.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(card)
+
+        let title = UILabel()
+        title.text = "完整能力目录"
+        title.font = .preferredFont(forTextStyle: .headline)
+        let detail = UILabel()
+        detail.text = "\(count) 个可运行场景 · PanModal + PopupView\n点击条目即可验证真实动画、手势和生命周期"
+        detail.font = .preferredFont(forTextStyle: .subheadline)
+        detail.textColor = .secondaryLabel
+        detail.numberOfLines = 2
+
+        let stack = UIStackView(arrangedSubviews: [title, detail])
+        stack.axis = .vertical
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(stack)
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: header.topAnchor, constant: 8),
+            card.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            card.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
+            card.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -8),
+            stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
+            stack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+        ])
+        header.isAccessibilityElement = true
+        header.accessibilityLabel = "完整能力目录，\(count) 个可运行场景"
+        return header
     }
 
     // MARK: - PanModal VC
@@ -110,6 +237,16 @@ final class ViewController: UITableViewController {
     @objc private func showCustomStyle() { presentPanModal(DemoCustomStyleVC()) }
     @objc private func showEdgeInteractive() { presentPanModal(DemoEdgeInteractiveVC()) }
     @objc private func showFrequentTap() { presentPanModal(DemoFrequentTapVC()) }
+    @objc private func showPageSheetStyle() {
+        presentPanModal(DemoPanModalVC(mode: .long, presentingStyle: .pageSheet))
+    }
+    @objc private func showShoppingCartStyle() {
+        presentPanModal(DemoPanModalVC(mode: .long, presentingStyle: .shoppingCart))
+    }
+    @objc private func showLockedPanModal() {
+        presentPanModal(DemoPanModalVC(mode: .medium, locksInteractiveDismissal: true))
+    }
+    @objc private func showPanModalKeyboard() { presentPanModal(DemoPanModalKeyboardVC()) }
 
     // MARK: - PanModal ContentView
     @objc private func showContentView() {
@@ -165,6 +302,17 @@ final class ViewController: UITableViewController {
         popup.show(in: window, animator: animator, animated: true)
     }
 
+    @objc private func showScrollableBottomSheet() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupBottomSheetConfiguration()
+        config.defaultHeight = 420
+        config.minimumHeight = 180
+        config.maximumHeight = 0
+        config.allowsFullScreen = true
+        let popup = makeScrollableBottomSheetContent()
+        popup.show(in: window, animator: TFYSwiftPopupBottomSheetAnimator(configuration: config), animated: true)
+    }
+
     // MARK: - presentPopup 控制器居中
     @objc private func showPopupVCFade() { presentPopup(DemoPopupContentVC(style: .fade)) }
     @objc private func showPopupVCZoom() { presentPopup(DemoPopupContentVC(style: .zoom)) }
@@ -207,20 +355,103 @@ final class ViewController: UITableViewController {
         popup.show(in: view.window, animator: animator, configuration: config, animated: true)
     }
 
-    @objc private func showPriorityPopup() {
+    @objc private func showGradientPopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.enablePriorityManagement = true
-        config.priority = .high
-        config.priorityStrategy = .queue
-        config.enableHapticFeedback = true
-
-        let animator = TFYSwiftPopupFadeInOutAnimator()
-        let center = TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 280, height: 180)
-        animator.layout = TFYSwiftPopupAnimatorLayout.center(center)
-
-        let popup = makeLabeledPopup(size: CGSize(width: 280, height: 180), text: "高优先级弹窗\n(队列管理)")
+        config.backgroundStyle = .gradient
+        config.cornerRadius = 20
+        let animator = TFYSwiftPopupZoomInOutAnimator()
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 210))
+        let popup = makeLabeledPopup(size: CGSize(width: 300, height: 210), text: "Gradient 背景\n点击背景或按钮关闭")
         popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showContainerAppearancePopup() {
+        guard let window = view.window else { return }
+        let config = TFYSwiftPopupViewConfiguration()
+        config.theme = .custom
+        config.customThemeBackgroundColor = .secondarySystemBackground
+        config.customThemeTextColor = .label
+        config.customThemeCornerRadius = 24
+        config.containerConfiguration.contentInsets = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
+        config.containerConfiguration.shadowEnabled = true
+        config.containerConfiguration.shadowOpacity = 0.28
+        config.containerConfiguration.shadowRadius = 24
+        config.containerConfiguration.shadowOffset = CGSize(width: 0, height: 12)
+        let animator = TFYSwiftPopupSpringAnimator()
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 220))
+        let popup = makeLabeledPopup(size: CGSize(width: 310, height: 220), text: "容器外观\n主题 · 圆角 · 阴影 · Insets")
+        popup.show(in: window, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showAutoDiscoveredPopup() {
+        let config = TFYSwiftPopupViewConfiguration()
+        config.enableContainerAutoDiscovery = true
+        config.containerSelectionStrategy = .smart
+        config.preferredContainerType = .viewController
+        config.allowContainerFallback = true
+        config.cornerRadius = 18
+        let animator = TFYSwiftPopupFadeInOutAnimator()
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 210))
+        let popup = makeLabeledPopup(size: CGSize(width: 310, height: 210), text: "Smart 容器已自动选择\n调用 show(in: nil)")
+        popup.show(in: nil, animator: animator, configuration: config, animated: true)
+    }
+
+    @objc private func showLifecyclePopup() {
+        guard let window = view.window else { return }
+        let animator = TFYSwiftPopupSpringAnimator()
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 320, height: 220))
+        let popup = makeLabeledPopup(size: CGSize(width: 320, height: 220), text: "Lifecycle\n准备展示…")
+        popup.delegate = self
+        popup.show(in: window, animator: animator, animated: true)
+    }
+
+    @objc private func showPriorityFIFO() {
+        showPrioritySequence(
+            [
+                ("FIFO 1 / 3", .normal),
+                ("FIFO 2 / 3", .normal),
+                ("FIFO 3 / 3", .normal),
+            ],
+            expectedOrder: "1 → 2 → 3"
+        )
+    }
+
+    @objc private func showPriorityOrdering() {
+        showPrioritySequence(
+            [
+                ("当前展示", .normal),
+                ("先入队的 Low", .low),
+                ("后入队的 Urgent", .urgent),
+            ],
+            expectedOrder: "Normal → Urgent → Low"
+        )
+    }
+
+    private func showPrioritySequence(
+        _ items: [(title: String, priority: TFYPopupPriority)],
+        expectedOrder: String
+    ) {
+        guard let window = view.window else { return }
+        let manager = TFYSwiftPopupPriorityManager.shared
+        manager.clearAllQueues()
+        manager.maxSimultaneousPopups = 1
+        for item in items {
+            let config = TFYSwiftPopupViewConfiguration()
+            config.enablePriorityManagement = true
+            config.priority = item.priority
+            config.priorityStrategy = .queue
+            config.autoDismissDelay = 3
+            config.maxWaitingTime = 15
+            let animator = TFYSwiftPopupFadeInOutAnimator()
+            animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 210))
+            let priority = TFYSwiftPopupPriorityManager.priorityDescription(item.priority)
+            let popup = makeLabeledPopup(
+                size: CGSize(width: 310, height: 210),
+                text: "\(item.title)\n优先级：\(priority)\n期望顺序：\(expectedOrder)"
+            )
+            popup.show(in: window, animator: animator, configuration: config, animated: true)
+        }
     }
 
     @objc private func showPriorityReplace() {
@@ -237,7 +468,7 @@ final class ViewController: UITableViewController {
         lowAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
             TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 280, height: 160)
         )
-        let lowPopup = makeLabeledPopup(size: CGSize(width: 280, height: 160), text: "低优先级\n将被替换")
+        let lowPopup = makeLabeledPopup(size: CGSize(width: 280, height: 160), text: "Low 正在展示\n0.6 秒后由 Urgent 替换")
         lowPopup.show(in: window, animator: lowAnimator, configuration: lowConfig, animated: true)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
@@ -251,7 +482,7 @@ final class ViewController: UITableViewController {
             highAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
                 TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 180)
             )
-            let highPopup = self.makeLabeledPopup(size: CGSize(width: 300, height: 180), text: "Urgent 优先级\n已替换低优先级")
+            let highPopup = self.makeLabeledPopup(size: CGSize(width: 300, height: 180), text: "✅ Urgent > Low\n高优先级替换成功")
             highPopup.show(in: window, animator: highAnimator, configuration: highConfig, animated: true)
         }
     }
@@ -284,6 +515,35 @@ final class ViewController: UITableViewController {
             )
             let topPopup = self.makeLabeledPopup(size: CGSize(width: 260, height: 150), text: "上层 High\n叠加显示")
             topPopup.show(in: window, animator: topAnimator, configuration: topConfig, animated: true)
+        }
+    }
+
+    @objc private func showPriorityReject() {
+        guard let window = view.window else { return }
+        let manager = TFYSwiftPopupPriorityManager.shared
+        manager.clearAllQueues()
+        manager.maxSimultaneousPopups = 1
+
+        let baseConfig = TFYSwiftPopupViewConfiguration()
+        baseConfig.enablePriorityManagement = true
+        baseConfig.priorityStrategy = .overlay
+        baseConfig.dismissOnBackgroundTap = false
+        baseConfig.autoDismissDelay = 2.5
+        let animator = TFYSwiftPopupFadeInOutAnimator()
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 190))
+        let base = makeLabeledPopup(size: CGSize(width: 300, height: 190), text: "容量已占满\n准备提交 Reject 请求…")
+        base.show(in: window, animator: animator, configuration: baseConfig, animated: true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self, weak base] in
+            guard let self, let base else { return }
+            let rejectedConfig = TFYSwiftPopupViewConfiguration()
+            rejectedConfig.enablePriorityManagement = true
+            rejectedConfig.priorityStrategy = .reject
+            let rejected = self.makeLabeledPopup(size: CGSize(width: 260, height: 150), text: "不应显示")
+            rejected.show(in: window, animator: TFYSwiftPopupSpringAnimator(), configuration: rejectedConfig, animated: true)
+            DispatchQueue.main.async {
+                self.updatePopupMessage(base, text: rejected.isShowing ? "Reject 未生效" : "✅ 第二个弹窗已被 Reject")
+            }
         }
     }
 
@@ -376,11 +636,25 @@ final class ViewController: UITableViewController {
     }
 
     @objc private func showUpwardPopup() {
+        showDirectionalPopup(TFYSwiftPopupUpwardAnimator(), title: "Upward · 从下向上")
+    }
+
+    @objc private func showDownwardPopup() {
+        showDirectionalPopup(TFYSwiftPopupDownwardAnimator(), title: "Downward · 从上向下")
+    }
+
+    @objc private func showLeftwardPopup() {
+        showDirectionalPopup(TFYSwiftPopupLeftwardAnimator(), title: "Leftward · 从右向左")
+    }
+
+    @objc private func showRightwardPopup() {
+        showDirectionalPopup(TFYSwiftPopupRightwardAnimator(), title: "Rightward · 从左向右")
+    }
+
+    private func showDirectionalPopup(_ animator: TFYSwiftPopupDirectionalAnimator, title: String) {
         guard let window = view.window else { return }
-        let upward = TFYSwiftPopupAnimatorLayoutBottom.layout(bottomMargin: 40, offsetX: 0, height: 200)
-        let animator = TFYSwiftPopupUpwardAnimator()
-        animator.layout = TFYSwiftPopupAnimatorLayout.bottom(upward)
-        let popup = makeSlidePopupContent(.fromBottom)
+        animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 200))
+        let popup = makeLabeledPopup(size: CGSize(width: 300, height: 200), text: title)
         popup.show(in: window, animator: animator, animated: true)
     }
 
@@ -391,6 +665,7 @@ final class ViewController: UITableViewController {
         popup.layer.cornerRadius = 16
         let label = UILabel()
         label.text = text
+        label.tag = 9_101
         label.numberOfLines = 0
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -407,6 +682,32 @@ final class ViewController: UITableViewController {
         ])
         btn.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
         return popup
+    }
+
+    private func updatePopupMessage(_ popup: TFYSwiftPopupView, text: String) {
+        (popup.viewWithTag(9_101) as? UILabel)?.text = text
+    }
+
+    func popupViewWillAppear(_ popupView: TFYSwiftPopupView) {
+        updatePopupMessage(popupView, text: "1. popupViewWillAppear")
+    }
+
+    func popupViewDidAppear(_ popupView: TFYSwiftPopupView) {
+        updatePopupMessage(popupView, text: "2. popupViewDidAppear\n现在关闭以继续验证")
+    }
+
+    func popupViewWillDisappear(_ popupView: TFYSwiftPopupView) {
+        updatePopupMessage(popupView, text: "3. popupViewWillDisappear")
+    }
+
+    func popupViewDidDisappear(_ popupView: TFYSwiftPopupView) {
+        UIAccessibility.post(notification: .announcement, argument: "4. popupViewDidDisappear")
+    }
+
+    func popupViewShouldDismiss(_ popupView: TFYSwiftPopupView) -> Bool { true }
+
+    func popupViewDidTapBackground(_ popupView: TFYSwiftPopupView) {
+        updatePopupMessage(popupView, text: "收到背景点击回调")
     }
 
     private func showCenterPopup(_ animator: TFYSwiftPopupBaseAnimator) {
@@ -561,6 +862,57 @@ final class ViewController: UITableViewController {
             btn.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
         ])
         btn.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
+        return popup
+    }
+
+    private func makeScrollableBottomSheetContent() -> TFYSwiftPopupView {
+        let popup = TFYSwiftPopupView(frame: .zero)
+        popup.backgroundColor = .systemBackground
+
+        let scrollView = UIScrollView()
+        scrollView.alwaysBounceVertical = true
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        popup.addSubview(scrollView)
+
+        let title = UILabel()
+        title.text = "嵌套 ScrollView"
+        title.font = .preferredFont(forTextStyle: .headline)
+        title.textAlignment = .center
+        let hint = UILabel()
+        hint.text = "先滚动列表；回到顶部后继续下拉可拖动面板"
+        hint.font = .preferredFont(forTextStyle: .subheadline)
+        hint.textColor = .secondaryLabel
+        hint.textAlignment = .center
+        hint.numberOfLines = 0
+        let close = UIButton(type: .system)
+        close.setTitle("关闭面板", for: .normal)
+        close.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
+
+        let rows = (1...20).map { index -> UIView in
+            let label = UILabel()
+            label.text = "滚动内容 \(index)"
+            label.font = .preferredFont(forTextStyle: .body)
+            label.backgroundColor = index.isMultiple(of: 2) ? .secondarySystemBackground : .systemBackground
+            label.heightAnchor.constraint(equalToConstant: 44).isActive = true
+            return label
+        }
+        let stack = UIStackView(arrangedSubviews: [title, hint] + rows + [close])
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: popup.topAnchor, constant: 12),
+            scrollView.leadingAnchor.constraint(equalTo: popup.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: popup.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: popup.bottomAnchor),
+            stack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -20),
+            stack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20),
+            stack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -40),
+        ])
         return popup
     }
 }

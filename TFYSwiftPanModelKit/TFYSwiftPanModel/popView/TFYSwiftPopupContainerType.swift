@@ -29,7 +29,13 @@ public final class TFYSwiftPopupContainerInfo: NSObject {
     public weak var containerView: UIView?
     public let name: String
     public let containerDescription: String
-    public let isAvailable: Bool
+    /// 实时状态，避免注册后因窗口切换而保留过期快照。
+    public var isAvailable: Bool {
+        guard let containerView else { return false }
+        if let window = containerView as? UIWindow { return !window.isHidden }
+        guard let window = containerView.window else { return false }
+        return !window.isHidden
+    }
     public let priority: Int
 
     public init(
@@ -44,7 +50,7 @@ public final class TFYSwiftPopupContainerInfo: NSObject {
         self.containerView = containerView
         self.name = name
         self.containerDescription = containerDescription
-        self.isAvailable = isAvailable
+        _ = isAvailable // 保留初始化参数，兼容已有调用代码。
         self.priority = priority
         super.init()
     }
@@ -78,16 +84,12 @@ public final class TFYSwiftPopupContainerInfo: NSObject {
         guard let containerView = viewController.view else { return nil }
         let name = "ViewController_\(Unmanaged.passUnretained(viewController).toOpaque())"
         let desc = "UIViewController container (\(Swift.type(of: viewController)))"
-        var isAvailable = true
-        if Thread.isMainThread {
-            isAvailable = containerView.window != nil
-        }
         return TFYSwiftPopupContainerInfo(
             type: .viewController,
             containerView: containerView,
             name: name,
             containerDescription: desc,
-            isAvailable: isAvailable,
+            isAvailable: containerView.window != nil,
             priority: 75
         )
     }

@@ -11,9 +11,18 @@ final class DemoPanModalVC: UIViewController {
 
     enum Mode { case short, medium, long }
     private let mode: Mode
+    private let presentingStyle: PresentingViewControllerAnimationStyle
+    private let locksInteractiveDismissal: Bool
+    private let statusLabel = UILabel()
 
-    init(mode: Mode) {
+    init(
+        mode: Mode,
+        presentingStyle: PresentingViewControllerAnimationStyle = .none,
+        locksInteractiveDismissal: Bool = false
+    ) {
         self.mode = mode
+        self.presentingStyle = presentingStyle
+        self.locksInteractiveDismissal = locksInteractiveDismissal
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -33,25 +42,54 @@ final class DemoPanModalVC: UIViewController {
         title.textAlignment = .center
 
         let desc = UILabel()
-        desc.text = "支持上下拖拽切换高度\n下拉关闭弹窗\nShort ↔ Medium ↔ Long 三态切换"
+        var features = ["拖拽或按钮切换 Short / Medium / Long"]
+        if presentingStyle != .none { features.append("父页面动画：\(presentingStyle.demoName)") }
+        if locksInteractiveDismissal { features.append("背景与手势关闭已锁定") }
+        desc.text = features.joined(separator: "\n")
         desc.numberOfLines = 0
         desc.textAlignment = .center
         desc.textColor = .secondaryLabel
 
+        let stateStack = UIStackView()
+        stateStack.axis = .horizontal
+        stateStack.spacing = 8
+        stateStack.distribution = .fillEqually
+        for (title, state) in [("Short", PresentationState.short), ("Medium", .medium), ("Long", .long)] {
+            let button = UIButton(type: .system)
+            button.setTitle(title, for: .normal)
+            button.backgroundColor = .tertiarySystemFill
+            button.layer.cornerRadius = 8
+            button.heightAnchor.constraint(equalToConstant: 36).isActive = true
+            button.addAction(UIAction { [weak self] _ in
+                guard let self else { return }
+                self.statusLabel.text = "正在切换：\(state.demoName)"
+                self.panModalTransition(to: state)
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.transitionDuration()) {
+                    self.statusLabel.text = "当前状态：\(self.panPresentationState.demoName)"
+                }
+            }, for: .touchUpInside)
+            stateStack.addArrangedSubview(button)
+        }
+
+        statusLabel.text = "当前状态：准备展示"
+        statusLabel.font = .preferredFont(forTextStyle: .footnote)
+        statusLabel.textColor = .systemIndigo
+        statusLabel.textAlignment = .center
+
         let btn = UIButton(type: .system)
-        btn.setTitle("关闭", for: .normal)
+        btn.setTitle(locksInteractiveDismissal ? "代码关闭（唯一出口）" : "关闭", for: .normal)
         btn.addTarget(self, action: #selector(close), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [title, desc, btn])
+        let stack = UIStackView(arrangedSubviews: [title, desc, stateStack, statusLabel, btn])
         stack.axis = .vertical
-        stack.spacing = 20
-        stack.alignment = .center
+        stack.spacing = 16
+        stack.alignment = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 30),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
         ])
     }
 
@@ -81,6 +119,75 @@ final class DemoPanModalVC: UIViewController {
         case .long: return .long
         }
     }
+
+    override func presentingVCAnimationStyle() -> PresentingViewControllerAnimationStyle { presentingStyle }
+    override func allowsTapBackgroundToDismiss() -> Bool { !locksInteractiveDismissal }
+    override func allowsDragToDismiss() -> Bool { !locksInteractiveDismissal }
+    override func allowsPullDownWhenShortState() -> Bool { !locksInteractiveDismissal }
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        statusLabel.text = "当前状态：\(panPresentationState.demoName)"
+    }
+}
+
+private extension PresentationState {
+    var demoName: String {
+        switch self {
+        case .short: return "Short"
+        case .medium: return "Medium"
+        case .long: return "Long"
+        }
+    }
+}
+
+private extension PresentingViewControllerAnimationStyle {
+    var demoName: String {
+        switch self {
+        case .none: return "None"
+        case .pageSheet: return "PageSheet"
+        case .shoppingCart: return "ShoppingCart"
+        case .custom: return "Custom"
+        }
+    }
+}
+
+final class DemoPanModalKeyboardVC: UIViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "PanModal 键盘避让"
+        title.font = .preferredFont(forTextStyle: .title2)
+        title.textAlignment = .center
+        let field = UITextField()
+        field.borderStyle = .roundedRect
+        field.placeholder = "点击输入，观察面板自动上移"
+        let close = UIButton(type: .system)
+        close.setTitle("收起键盘并关闭", for: .normal)
+        close.addAction(UIAction { [weak self] _ in
+            self?.view.endEditing(true)
+            self?.dismiss(animated: true)
+        }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [title, field, close])
+        stack.axis = .vertical
+        stack.spacing = 18
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 44),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+            field.heightAnchor.constraint(equalToConstant: 44),
+        ])
+    }
+
+    override func shortFormHeight() -> PanModalHeight { .init(type: .content, height: 280) }
+    override func longFormHeight() -> PanModalHeight { .init(type: .content, height: 460) }
+    override func originPresentationState() -> PresentationState { .short }
+    override func isAutoHandleKeyboardEnabled() -> Bool { true }
+    override func keyboardOffsetFromInputView() -> CGFloat { 12 }
 }
 
 // MARK: - 带 ScrollView 的弹窗
