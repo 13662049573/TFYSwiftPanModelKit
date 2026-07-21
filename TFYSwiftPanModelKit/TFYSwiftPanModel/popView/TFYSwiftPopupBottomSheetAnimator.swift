@@ -51,6 +51,60 @@ public final class TFYSwiftPopupBottomSheetConfiguration: NSObject, NSCopying {
     }
 }
 
+// MARK: - Chain
+
+public extension TFYSwiftPopupBottomSheetConfiguration {
+    @discardableResult public func defaultHeight(_ value: CGFloat) -> Self {
+        defaultHeight = value
+        return self
+    }
+
+    @discardableResult public func minimumHeight(_ value: CGFloat) -> Self {
+        minimumHeight = value
+        return self
+    }
+
+    @discardableResult public func maximumHeight(_ value: CGFloat) -> Self {
+        maximumHeight = value
+        return self
+    }
+
+    @discardableResult public func allowsFullScreen(_ value: Bool) -> Self {
+        allowsFullScreen = value
+        return self
+    }
+
+    @discardableResult public func snapToDefaultThreshold(_ value: CGFloat) -> Self {
+        snapToDefaultThreshold = value
+        return self
+    }
+
+    @discardableResult public func springDamping(_ value: CGFloat) -> Self {
+        springDamping = value
+        return self
+    }
+
+    @discardableResult public func springVelocity(_ value: CGFloat) -> Self {
+        springVelocity = value
+        return self
+    }
+
+    @discardableResult public func animationDuration(_ value: TimeInterval) -> Self {
+        animationDuration = value
+        return self
+    }
+
+    @discardableResult public func cornerRadius(_ value: CGFloat) -> Self {
+        cornerRadius = value
+        return self
+    }
+
+    @discardableResult public func enableGestures(_ value: Bool) -> Self {
+        enableGestures = value
+        return self
+    }
+}
+
 /// 底部弹出框动画器
 public final class TFYSwiftPopupBottomSheetAnimator: NSObject, TFYSwiftPopupViewAnimator, UIGestureRecognizerDelegate {
     private(set) public var configuration: TFYSwiftPopupBottomSheetConfiguration

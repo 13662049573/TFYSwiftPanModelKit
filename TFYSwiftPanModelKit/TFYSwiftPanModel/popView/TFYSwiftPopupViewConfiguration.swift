@@ -147,3 +147,199 @@ public final class TFYSwiftPopupViewConfiguration: NSObject, NSCopying {
         return c
     }
 }
+
+// MARK: - Chain
+
+public extension TFYSwiftPopupViewConfiguration {
+    @discardableResult public func isDismissible(_ value: Bool) -> Self {
+        isDismissible = value
+        return self
+    }
+
+    @discardableResult public func isInteractive(_ value: Bool) -> Self {
+        isInteractive = value
+        return self
+    }
+
+    @discardableResult public func isPenetrable(_ value: Bool) -> Self {
+        isPenetrable = value
+        return self
+    }
+
+    @discardableResult public func backgroundStyle(_ value: TFYPopupBackgroundStyle) -> Self {
+        backgroundStyle = value
+        return self
+    }
+
+    @discardableResult public func backgroundColor(_ value: UIColor) -> Self {
+        backgroundColor = value
+        return self
+    }
+
+    @discardableResult public func blurStyle(_ value: UIBlurEffect.Style) -> Self {
+        blurStyle = value
+        return self
+    }
+
+    @discardableResult public func animationDuration(_ value: TimeInterval) -> Self {
+        animationDuration = value
+        return self
+    }
+
+    @discardableResult public func respectsSafeArea(_ value: Bool) -> Self {
+        respectsSafeArea = value
+        return self
+    }
+
+    @discardableResult public func safeAreaInsets(_ value: UIEdgeInsets) -> Self {
+        safeAreaInsets = value
+        return self
+    }
+
+    @discardableResult public func enableDragToDismiss(_ value: Bool) -> Self {
+        enableDragToDismiss = value
+        return self
+    }
+
+    @discardableResult public func dragDismissThreshold(_ value: CGFloat) -> Self {
+        dragDismissThreshold = value
+        return self
+    }
+
+    @discardableResult public func enableSwipeToDismiss(_ value: Bool) -> Self {
+        enableSwipeToDismiss = value
+        return self
+    }
+
+    @discardableResult public func cornerRadius(_ value: CGFloat) -> Self {
+        cornerRadius = value
+        return self
+    }
+
+    @discardableResult public func dismissOnBackgroundTap(_ value: Bool) -> Self {
+        dismissOnBackgroundTap = value
+        return self
+    }
+
+    @discardableResult public func dismissWhenAppGoesToBackground(_ value: Bool) -> Self {
+        dismissWhenAppGoesToBackground = value
+        return self
+    }
+
+    @discardableResult public func maxPopupCount(_ value: Int) -> Self {
+        maxPopupCount = value
+        return self
+    }
+
+    @discardableResult public func autoDismissDelay(_ value: TimeInterval) -> Self {
+        autoDismissDelay = value
+        return self
+    }
+
+    @discardableResult public func enableHapticFeedback(_ value: Bool) -> Self {
+        enableHapticFeedback = value
+        return self
+    }
+
+    @discardableResult public func enableAccessibility(_ value: Bool) -> Self {
+        enableAccessibility = value
+        return self
+    }
+
+    @discardableResult public func theme(_ value: TFYPopupTheme) -> Self {
+        theme = value
+        return self
+    }
+
+    @discardableResult public func customThemeBackgroundColor(_ value: UIColor?) -> Self {
+        customThemeBackgroundColor = value
+        return self
+    }
+
+    @discardableResult public func customThemeTextColor(_ value: UIColor?) -> Self {
+        customThemeTextColor = value
+        return self
+    }
+
+    @discardableResult public func customThemeCornerRadius(_ value: CGFloat) -> Self {
+        customThemeCornerRadius = value
+        return self
+    }
+
+    @discardableResult public func keyboardConfiguration(_ value: TFYSwiftPopupKeyboardConfiguration) -> Self {
+        keyboardConfiguration = value
+        return self
+    }
+
+    @discardableResult public func containerConfiguration(_ value: TFYSwiftPopupContainerConfiguration) -> Self {
+        containerConfiguration = value
+        return self
+    }
+
+    /// 就地配置嵌套键盘项，返回自身便于继续链式赋值
+    @discardableResult public func configureKeyboard(_ block: (TFYSwiftPopupKeyboardConfiguration) -> Void) -> Self {
+        block(keyboardConfiguration)
+        return self
+    }
+
+    /// 就地配置嵌套容器项，返回自身便于继续链式赋值
+    @discardableResult public func configureContainer(_ block: (TFYSwiftPopupContainerConfiguration) -> Void) -> Self {
+        block(containerConfiguration)
+        return self
+    }
+
+    @discardableResult public func priority(_ value: TFYPopupPriority) -> Self {
+        priority = value
+        return self
+    }
+
+    @discardableResult public func priorityStrategy(_ value: TFYPopupPriorityStrategy) -> Self {
+        priorityStrategy = value
+        return self
+    }
+
+    @discardableResult public func canBeReplacedByHigherPriority(_ value: Bool) -> Self {
+        canBeReplacedByHigherPriority = value
+        return self
+    }
+
+    @discardableResult public func maxWaitingTime(_ value: TimeInterval) -> Self {
+        maxWaitingTime = value
+        return self
+    }
+
+    @discardableResult public func enablePriorityManagement(_ value: Bool) -> Self {
+        enablePriorityManagement = value
+        return self
+    }
+
+    @discardableResult public func containerSelectionStrategy(_ value: TFYPopupContainerSelectionStrategy) -> Self {
+        containerSelectionStrategy = value
+        return self
+    }
+
+    @discardableResult public func preferredContainerType(_ value: TFYPopupContainerType) -> Self {
+        preferredContainerType = value
+        return self
+    }
+
+    @discardableResult public func customContainerSelector(_ value: TFYSwiftPopupContainerSelector?) -> Self {
+        customContainerSelector = value
+        return self
+    }
+
+    @discardableResult public func enableContainerAutoDiscovery(_ value: Bool) -> Self {
+        enableContainerAutoDiscovery = value
+        return self
+    }
+
+    @discardableResult public func allowContainerFallback(_ value: Bool) -> Self {
+        allowContainerFallback = value
+        return self
+    }
+
+    @discardableResult public func containerSelectionTimeout(_ value: TimeInterval) -> Self {
+        containerSelectionTimeout = value
+        return self
+    }
+}

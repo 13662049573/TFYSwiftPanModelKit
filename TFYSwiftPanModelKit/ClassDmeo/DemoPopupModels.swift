@@ -171,13 +171,12 @@ final class DemoConfiguredPopupContentVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 300, height: 240) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.backgroundStyle = .blur
-        config.cornerRadius = 20
-        config.enableHapticFeedback = true
-        config.dismissOnBackgroundTap = true
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .backgroundStyle(.blur)
+            .cornerRadius(20)
+            .enableHapticFeedback(true)
+            .dismissOnBackgroundTap(true)
+            .enablePriorityManagement(false)
     }
 
     override func preferredPopupAnimator() -> TFYSwiftPopupViewAnimator? {
@@ -223,14 +222,13 @@ final class DemoNonDismissiblePopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 300, height: 220) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.isDismissible = false
-        config.dismissOnBackgroundTap = false
-        config.enableDragToDismiss = false
-        config.enableSwipeToDismiss = false
-        config.cornerRadius = 16
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .isDismissible(false)
+            .dismissOnBackgroundTap(false)
+            .enableDragToDismiss(false)
+            .enableSwipeToDismiss(false)
+            .cornerRadius(16)
+            .enablePriorityManagement(false)
     }
 
     override func preferredPopupAnimator() -> TFYSwiftPopupViewAnimator? {
@@ -278,13 +276,12 @@ final class DemoDragSwipePopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 300, height: 220) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.enableDragToDismiss = true
-        config.enableSwipeToDismiss = true
-        config.dragDismissThreshold = 0.25
-        config.cornerRadius = 16
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .enableDragToDismiss(true)
+            .enableSwipeToDismiss(true)
+            .dragDismissThreshold(0.25)
+            .cornerRadius(16)
+            .enablePriorityManagement(false)
     }
 
     override func preferredPopupAnimator() -> TFYSwiftPopupViewAnimator? {
@@ -349,13 +346,14 @@ final class DemoKeyboardPopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 320, height: 220) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.cornerRadius = 16
-        config.keyboardConfiguration.isEnabled = true
-        config.keyboardConfiguration.avoidingMode = mode
-        config.keyboardConfiguration.additionalOffset = 12
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .cornerRadius(16)
+            .enablePriorityManagement(false)
+            .configureKeyboard {
+                $0.isEnabled(true)
+                    .avoidingMode(mode)
+                    .additionalOffset(12)
+            }
     }
 
     override func preferredPopupAnimator() -> TFYSwiftPopupViewAnimator? {
@@ -404,14 +402,13 @@ final class DemoPenetrablePopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 260, height: 180) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.isPenetrable = true
-        config.dismissOnBackgroundTap = false
-        config.backgroundStyle = .solidColor
-        config.backgroundColor = .clear
-        config.cornerRadius = 16
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .isPenetrable(true)
+            .dismissOnBackgroundTap(false)
+            .backgroundStyle(.solidColor)
+            .backgroundColor(.clear)
+            .cornerRadius(16)
+            .enablePriorityManagement(false)
     }
 }
 
@@ -449,12 +446,11 @@ final class DemoAutoDismissPopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 260, height: 160) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.autoDismissDelay = 2
-        config.cornerRadius = 16
-        config.enableHapticFeedback = true
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .autoDismissDelay(2)
+            .cornerRadius(16)
+            .enableHapticFeedback(true)
+            .enablePriorityManagement(false)
     }
 
     override func preferredPopupAnimator() -> TFYSwiftPopupViewAnimator? {
@@ -502,11 +498,10 @@ final class DemoAccessibilityPopupVC: TFYSwiftPopupContentViewController {
     override func preferredPopupContentSize() -> CGSize { CGSize(width: 300, height: 200) }
 
     override func preferredPopupConfiguration() -> TFYSwiftPopupViewConfiguration {
-        let config = TFYSwiftPopupViewConfiguration()
-        config.enableAccessibility = true
-        config.cornerRadius = 16
-        config.backgroundStyle = .blur
-        config.enablePriorityManagement = false
-        return config
+        TFYSwiftPopupViewConfiguration()
+            .enableAccessibility(true)
+            .cornerRadius(16)
+            .backgroundStyle(.blur)
+            .enablePriorityManagement(false)
     }
 }

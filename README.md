@@ -434,7 +434,10 @@ popup.show(in: window, animator: animator, configuration: config)
 
 ### 键盘与容器配置
 
+属性赋值与链式赋值等价，可混用：
+
 ```swift
+// 属性赋值（原有写法，行为不变）
 let config = TFYSwiftPopupViewConfiguration()
 config.keyboardConfiguration.isEnabled = true
 config.keyboardConfiguration.avoidingMode = .transform // 也可使用 .constraint / .resize
@@ -444,6 +447,28 @@ config.containerSelectionStrategy = .smart
 config.preferredContainerType = .window
 config.containerConfiguration.cornerRadius = 18
 config.containerConfiguration.shadowEnabled = true
+
+// 链式赋值（新增，就地 mutate，返回 Self）
+let chained = TFYSwiftPopupViewConfiguration()
+    .containerSelectionStrategy(.smart)
+    .preferredContainerType(.window)
+    .configureKeyboard {
+        $0.isEnabled(true).avoidingMode(.transform).additionalOffset(8)
+    }
+    .configureContainer {
+        $0.cornerRadius(18).shadowEnabled(true).maxWidth(320) // 自动打开 hasMaxWidth
+    }
+
+// BottomSheet / PanModal 背景同样支持
+let sheet = TFYSwiftPopupBottomSheetConfiguration()
+    .defaultHeight(350)
+    .maximumHeight(0)
+    .enableGestures(true)
+    .cornerRadius(16)
+
+let background = TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
+    .backgroundAlpha(0.6)
+    .backgroundBlurRadius(15)
 ```
 
 键盘避让按弹窗与键盘的实际重叠区域计算，兼容浮动键盘和非全屏容器。配置传入 `show` 前可调用 `validate()`；非有限数值、非法比例、负间距或无效队列容量会被拒绝。

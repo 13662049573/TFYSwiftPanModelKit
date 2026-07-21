@@ -293,10 +293,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showBottomSheet() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupBottomSheetConfiguration()
-        config.defaultHeight = 350
-        config.enableGestures = true
-        config.cornerRadius = 16
-        config.allowsFullScreen = true
+            .defaultHeight(350)
+            .enableGestures(true)
+            .cornerRadius(16)
+            .allowsFullScreen(true)
         let animator = TFYSwiftPopupBottomSheetAnimator(configuration: config)
         let popup = makeBottomSheetContent()
         popup.show(in: window, animator: animator, animated: true)
@@ -305,10 +305,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showScrollableBottomSheet() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupBottomSheetConfiguration()
-        config.defaultHeight = 420
-        config.minimumHeight = 180
-        config.maximumHeight = 0
-        config.allowsFullScreen = true
+            .defaultHeight(420)
+            .minimumHeight(180)
+            .maximumHeight(0)
+            .allowsFullScreen(true)
         let popup = makeScrollableBottomSheetContent()
         popup.show(in: window, animator: TFYSwiftPopupBottomSheetAnimator(configuration: config), animated: true)
     }
@@ -341,11 +341,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     // MARK: - PopupView 高级功能
     @objc private func showConfiguredPopup() {
         let config = TFYSwiftPopupViewConfiguration()
-        config.backgroundStyle = .blur
-        config.blurStyle = .systemMaterialDark
-        config.cornerRadius = 20
-        config.enableHapticFeedback = true
-        config.dismissOnBackgroundTap = true
+            .backgroundStyle(.blur)
+            .blurStyle(.systemMaterialDark)
+            .cornerRadius(20)
+            .enableHapticFeedback(true)
+            .dismissOnBackgroundTap(true)
 
         let animator = TFYSwiftPopupSpringAnimator()
         let center = TFYSwiftPopupAnimatorLayoutCenter.layout(offsetY: 0, offsetX: 0, width: 300, height: 220)
@@ -358,8 +358,8 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showGradientPopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.backgroundStyle = .gradient
-        config.cornerRadius = 20
+            .backgroundStyle(.gradient)
+            .cornerRadius(20)
         let animator = TFYSwiftPopupZoomInOutAnimator()
         animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 210))
         let popup = makeLabeledPopup(size: CGSize(width: 300, height: 210), text: "Gradient 背景\n点击背景或按钮关闭")
@@ -369,15 +369,17 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showContainerAppearancePopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.theme = .custom
-        config.customThemeBackgroundColor = .secondarySystemBackground
-        config.customThemeTextColor = .label
-        config.customThemeCornerRadius = 24
-        config.containerConfiguration.contentInsets = UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24)
-        config.containerConfiguration.shadowEnabled = true
-        config.containerConfiguration.shadowOpacity = 0.28
-        config.containerConfiguration.shadowRadius = 24
-        config.containerConfiguration.shadowOffset = CGSize(width: 0, height: 12)
+            .theme(.custom)
+            .customThemeBackgroundColor(.secondarySystemBackground)
+            .customThemeTextColor(.label)
+            .customThemeCornerRadius(24)
+            .configureContainer {
+                $0.contentInsets(UIEdgeInsets(top: 24, left: 24, bottom: 24, right: 24))
+                    .shadowEnabled(true)
+                    .shadowOpacity(0.28)
+                    .shadowRadius(24)
+                    .shadowOffset(CGSize(width: 0, height: 12))
+            }
         let animator = TFYSwiftPopupSpringAnimator()
         animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 220))
         let popup = makeLabeledPopup(size: CGSize(width: 310, height: 220), text: "容器外观\n主题 · 圆角 · 阴影 · Insets")
@@ -386,11 +388,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     @objc private func showAutoDiscoveredPopup() {
         let config = TFYSwiftPopupViewConfiguration()
-        config.enableContainerAutoDiscovery = true
-        config.containerSelectionStrategy = .smart
-        config.preferredContainerType = .viewController
-        config.allowContainerFallback = true
-        config.cornerRadius = 18
+            .enableContainerAutoDiscovery(true)
+            .containerSelectionStrategy(.smart)
+            .preferredContainerType(.viewController)
+            .allowContainerFallback(true)
+            .cornerRadius(18)
         let animator = TFYSwiftPopupFadeInOutAnimator()
         animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 210))
         let popup = makeLabeledPopup(size: CGSize(width: 310, height: 210), text: "Smart 容器已自动选择\n调用 show(in: nil)")
@@ -438,11 +440,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         manager.maxSimultaneousPopups = 1
         for item in items {
             let config = TFYSwiftPopupViewConfiguration()
-            config.enablePriorityManagement = true
-            config.priority = item.priority
-            config.priorityStrategy = .queue
-            config.autoDismissDelay = 3
-            config.maxWaitingTime = 15
+                .enablePriorityManagement(true)
+                .priority(item.priority)
+                .priorityStrategy(.queue)
+                .autoDismissDelay(3)
+                .maxWaitingTime(15)
             let animator = TFYSwiftPopupFadeInOutAnimator()
             animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 210))
             let priority = TFYSwiftPopupPriorityManager.priorityDescription(item.priority)
@@ -458,11 +460,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         guard let window = view.window else { return }
 
         let lowConfig = TFYSwiftPopupViewConfiguration()
-        lowConfig.enablePriorityManagement = true
-        lowConfig.priority = .low
-        lowConfig.priorityStrategy = .queue
-        lowConfig.canBeReplacedByHigherPriority = true
-        lowConfig.dismissOnBackgroundTap = false
+            .enablePriorityManagement(true)
+            .priority(.low)
+            .priorityStrategy(.queue)
+            .canBeReplacedByHigherPriority(true)
+            .dismissOnBackgroundTap(false)
 
         let lowAnimator = TFYSwiftPopupFadeInOutAnimator()
         lowAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -473,10 +475,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             let highConfig = TFYSwiftPopupViewConfiguration()
-            highConfig.enablePriorityManagement = true
-            highConfig.priority = .urgent
-            highConfig.priorityStrategy = .queue
-            highConfig.canBeReplacedByHigherPriority = true
+                .enablePriorityManagement(true)
+                .priority(.urgent)
+                .priorityStrategy(.queue)
+                .canBeReplacedByHigherPriority(true)
 
             let highAnimator = TFYSwiftPopupSpringAnimator()
             highAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -491,10 +493,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         guard let window = view.window else { return }
 
         let baseConfig = TFYSwiftPopupViewConfiguration()
-        baseConfig.enablePriorityManagement = true
-        baseConfig.priority = .normal
-        baseConfig.priorityStrategy = .overlay
-        baseConfig.dismissOnBackgroundTap = false
+            .enablePriorityManagement(true)
+            .priority(.normal)
+            .priorityStrategy(.overlay)
+            .dismissOnBackgroundTap(false)
 
         let baseAnimator = TFYSwiftPopupFadeInOutAnimator()
         baseAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -505,9 +507,9 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             let topConfig = TFYSwiftPopupViewConfiguration()
-            topConfig.enablePriorityManagement = true
-            topConfig.priority = .high
-            topConfig.priorityStrategy = .overlay
+                .enablePriorityManagement(true)
+                .priority(.high)
+                .priorityStrategy(.overlay)
 
             let topAnimator = TFYSwiftPopupSpringAnimator()
             topAnimator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -525,10 +527,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         manager.maxSimultaneousPopups = 1
 
         let baseConfig = TFYSwiftPopupViewConfiguration()
-        baseConfig.enablePriorityManagement = true
-        baseConfig.priorityStrategy = .overlay
-        baseConfig.dismissOnBackgroundTap = false
-        baseConfig.autoDismissDelay = 2.5
+            .enablePriorityManagement(true)
+            .priorityStrategy(.overlay)
+            .dismissOnBackgroundTap(false)
+            .autoDismissDelay(2.5)
         let animator = TFYSwiftPopupFadeInOutAnimator()
         animator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 190))
         let base = makeLabeledPopup(size: CGSize(width: 300, height: 190), text: "容量已占满\n准备提交 Reject 请求…")
@@ -537,8 +539,8 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self, weak base] in
             guard let self, let base else { return }
             let rejectedConfig = TFYSwiftPopupViewConfiguration()
-            rejectedConfig.enablePriorityManagement = true
-            rejectedConfig.priorityStrategy = .reject
+                .enablePriorityManagement(true)
+                .priorityStrategy(.reject)
             let rejected = self.makeLabeledPopup(size: CGSize(width: 260, height: 150), text: "不应显示")
             rejected.show(in: window, animator: TFYSwiftPopupSpringAnimator(), configuration: rejectedConfig, animated: true)
             DispatchQueue.main.async {
@@ -550,11 +552,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showNonDismissiblePopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.isDismissible = false
-        config.dismissOnBackgroundTap = false
-        config.enableDragToDismiss = false
-        config.enableSwipeToDismiss = false
-        config.cornerRadius = 16
+            .isDismissible(false)
+            .dismissOnBackgroundTap(false)
+            .enableDragToDismiss(false)
+            .enableSwipeToDismiss(false)
+            .cornerRadius(16)
 
         let animator = TFYSwiftPopupZoomInOutAnimator()
         animator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -568,11 +570,11 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showDragSwipeDismissPopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.enableDragToDismiss = true
-        config.enableSwipeToDismiss = true
-        config.dragDismissThreshold = 0.25
-        config.cornerRadius = 16
-        config.backgroundStyle = .solidColor
+            .enableDragToDismiss(true)
+            .enableSwipeToDismiss(true)
+            .dragDismissThreshold(0.25)
+            .cornerRadius(16)
+            .backgroundStyle(.solidColor)
 
         let animator = TFYSwiftPopupBounceAnimator()
         animator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -585,10 +587,10 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showDarkModePopup() {
         guard let window = view.window else { return }
         let config = TFYSwiftPopupViewConfiguration()
-        config.theme = .default
-        config.backgroundStyle = .blur
-        config.cornerRadius = 16
-        config.enableAccessibility = true
+            .theme(.default)
+            .backgroundStyle(.blur)
+            .cornerRadius(16)
+            .enableAccessibility(true)
 
         let animator = TFYSwiftPopupSpringAnimator()
         animator.layout = TFYSwiftPopupAnimatorLayout.center(
@@ -716,7 +718,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         animator.layout = TFYSwiftPopupAnimatorLayout.center(center)
         let popup = makeCenterPopupContent()
         let config = TFYSwiftPopupViewConfiguration()
-        config.enablePriorityManagement = false
+            .enablePriorityManagement(false)
         popup.show(in: window, animator: animator, configuration: config, animated: true)
     }
 
@@ -740,7 +742,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         let animator = TFYSwiftPopupSlideAnimator(direction: direction, layout: layoutConfig)
         let popup = makeSlidePopupContent(direction)
         let config = TFYSwiftPopupViewConfiguration()
-        config.enablePriorityManagement = false
+            .enablePriorityManagement(false)
         popup.show(in: window, animator: animator, configuration: config, animated: true)
     }
 

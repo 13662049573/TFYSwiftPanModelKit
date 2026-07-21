@@ -139,3 +139,85 @@ public final class TFYSwiftPopupContainerConfiguration: NSObject, NSCopying {
         return c
     }
 }
+
+// MARK: - Chain
+
+public extension TFYSwiftPopupContainerConfiguration {
+    @discardableResult public func width(_ value: TFYSwiftPopupContainerDimension) -> Self {
+        width = value
+        return self
+    }
+
+    @discardableResult public func height(_ value: TFYSwiftPopupContainerDimension) -> Self {
+        height = value
+        return self
+    }
+
+    /// 设置最大宽度，并自动打开 `hasMaxWidth`
+    @discardableResult public func maxWidth(_ value: CGFloat) -> Self {
+        maxWidth = value
+        hasMaxWidth = true
+        return self
+    }
+
+    /// 设置最大高度，并自动打开 `hasMaxHeight`
+    @discardableResult public func maxHeight(_ value: CGFloat) -> Self {
+        maxHeight = value
+        hasMaxHeight = true
+        return self
+    }
+
+    /// 设置最小宽度，并自动打开 `hasMinWidth`
+    @discardableResult public func minWidth(_ value: CGFloat) -> Self {
+        minWidth = value
+        hasMinWidth = true
+        return self
+    }
+
+    /// 设置最小高度，并自动打开 `hasMinHeight`
+    @discardableResult public func minHeight(_ value: CGFloat) -> Self {
+        minHeight = value
+        hasMinHeight = true
+        return self
+    }
+
+    @discardableResult public func contentInsets(_ value: UIEdgeInsets) -> Self {
+        contentInsets = value
+        return self
+    }
+
+    @discardableResult public func screenInsets(_ value: UIEdgeInsets) -> Self {
+        screenInsets = value
+        return self
+    }
+
+    @discardableResult public func cornerRadius(_ value: CGFloat) -> Self {
+        cornerRadius = value
+        return self
+    }
+
+    @discardableResult public func shadowEnabled(_ value: Bool) -> Self {
+        shadowEnabled = value
+        return self
+    }
+
+    @discardableResult public func shadowColor(_ value: UIColor) -> Self {
+        shadowColor = value
+        return self
+    }
+
+    @discardableResult public func shadowOpacity(_ value: Float) -> Self {
+        shadowOpacity = value
+        return self
+    }
+
+    @discardableResult public func shadowRadius(_ value: CGFloat) -> Self {
+        shadowRadius = value
+        return self
+    }
+
+    @discardableResult public func shadowOffset(_ value: CGSize) -> Self {
+        shadowOffset = value
+        return self
+    }
+}

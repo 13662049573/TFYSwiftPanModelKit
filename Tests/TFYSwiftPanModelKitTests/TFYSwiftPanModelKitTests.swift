@@ -122,6 +122,55 @@ final class TFYSwiftPopupConfigurationTests: XCTestCase {
         config.width = .ratio(0.5)
         XCTAssertTrue(config.validate())
     }
+
+    func testConfigurationChainAssignment() {
+        let config = TFYSwiftPopupViewConfiguration()
+            .cornerRadius(16)
+            .backgroundStyle(.blur)
+            .enablePriorityManagement(true)
+            .priority(.high)
+            .configureKeyboard {
+                $0.isEnabled(true).avoidingMode(.transform).additionalOffset(8)
+            }
+            .configureContainer {
+                $0.cornerRadius(18).shadowEnabled(true).maxWidth(320)
+            }
+
+        XCTAssertEqual(config.cornerRadius, 16)
+        XCTAssertEqual(config.backgroundStyle, .blur)
+        XCTAssertTrue(config.enablePriorityManagement)
+        XCTAssertEqual(config.priority, .high)
+        XCTAssertTrue(config.keyboardConfiguration.isEnabled)
+        XCTAssertEqual(config.keyboardConfiguration.avoidingMode, .transform)
+        XCTAssertEqual(config.keyboardConfiguration.additionalOffset, 8)
+        XCTAssertEqual(config.containerConfiguration.cornerRadius, 18)
+        XCTAssertTrue(config.containerConfiguration.shadowEnabled)
+        XCTAssertEqual(config.containerConfiguration.maxWidth, 320)
+        XCTAssertTrue(config.containerConfiguration.hasMaxWidth)
+        XCTAssertTrue(config.validate())
+
+        let sheet = TFYSwiftPopupBottomSheetConfiguration()
+            .defaultHeight(350)
+            .maximumHeight(0)
+            .enableGestures(true)
+            .cornerRadius(16)
+        XCTAssertEqual(sheet.defaultHeight, 350)
+        XCTAssertTrue(sheet.enableGestures)
+        XCTAssertTrue(sheet.validate())
+
+        let background = TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
+            .backgroundAlpha(0.6)
+            .backgroundBlurRadius(15)
+        XCTAssertEqual(background.backgroundAlpha, 0.6)
+        XCTAssertEqual(background.backgroundBlurRadius, 15)
+
+        let shadow = TFYSwiftPanModalShadow.none
+            .shadowColor(.black)
+            .shadowRadius(12)
+            .shadowOpacity(0.4)
+        XCTAssertEqual(shadow.shadowRadius, 12)
+        XCTAssertEqual(shadow.shadowOpacity, 0.4)
+    }
 }
 
 final class TFYSwiftPopupPriorityTests: XCTestCase {

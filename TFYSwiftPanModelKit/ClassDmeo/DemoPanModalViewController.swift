@@ -269,14 +269,17 @@ final class DemoCustomStyleVC: UIViewController {
     override func cornerRadius() -> CGFloat { 20 }
 
     override func backgroundConfig() -> TFYSwiftBackgroundConfig {
-        let c = TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
-        c.backgroundAlpha = 0.5
-        c.backgroundBlurRadius = 10
-        return c
+        TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
+            .backgroundAlpha(0.5)
+            .backgroundBlurRadius(10)
     }
 
     override func contentShadow() -> TFYSwiftPanModalShadow {
-        TFYSwiftPanModalShadow(color: .black.withAlphaComponent(0.3), radius: 12, offset: CGSize(width: 0, height: -4), opacity: 0.4)
+        TFYSwiftPanModalShadow.none
+            .shadowColor(.black.withAlphaComponent(0.3))
+            .shadowRadius(12)
+            .shadowOffset(CGSize(width: 0, height: -4))
+            .shadowOpacity(0.4)
     }
 
     override func originPresentationState() -> PresentationState { .short }

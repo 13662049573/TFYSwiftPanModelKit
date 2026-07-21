@@ -58,3 +58,32 @@ public final class TFYSwiftBackgroundConfig: NSObject {
         }
     }
 }
+
+// MARK: - Chain
+
+public extension TFYSwiftBackgroundConfig {
+    @discardableResult public func backgroundBehavior(_ value: TFYBackgroundBehavior) -> Self {
+        backgroundBehavior = value
+        return self
+    }
+
+    @discardableResult public func backgroundAlpha(_ value: CGFloat) -> Self {
+        backgroundAlpha = value
+        return self
+    }
+
+    @discardableResult public func visualEffect(_ value: UIVisualEffect?) -> Self {
+        visualEffect = value
+        return self
+    }
+
+    @discardableResult public func blurTintColor(_ value: UIColor?) -> Self {
+        blurTintColor = value
+        return self
+    }
+
+    @discardableResult public func backgroundBlurRadius(_ value: CGFloat) -> Self {
+        backgroundBlurRadius = value
+        return self
+    }
+}
