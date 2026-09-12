@@ -24,6 +24,8 @@ public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorPr
     private let leftView = UIView()
     private let rightView = UIView()
     private var state: TFYIndicatorState = .normal
+    var accessibilityIncrementHandler: (() -> Void)?
+    var accessibilityDecrementHandler: (() -> Void)?
 
     public override init(frame: CGRect) {
         super.init(frame: .zero)
@@ -41,15 +43,9 @@ public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorPr
         fatalError("init(coder:) has not been implemented")
     }
 
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        guard traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
-        leftView.backgroundColor = indicatorColor
-        rightView.backgroundColor = indicatorColor
-    }
-
     private func animate(_ animations: @escaping () -> Void) {
-        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 1, options: [.beginFromCurrentState, .curveEaseOut], animations: animations)
+        let duration: TimeInterval = UIAccessibility.isReduceMotionEnabled ? 0 : 0.5
+        UIView.animate(withDuration: duration, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 1, options: [.beginFromCurrentState, .curveEaseOut], animations: animations)
     }
 
     // MARK: - TFYSwiftPanModalIndicatorProtocol
@@ -88,5 +84,13 @@ public final class TFYSwiftPanIndicatorView: UIView, TFYSwiftPanModalIndicatorPr
         rightView.layer.cornerRadius = min(rightView.panWidth, rightView.panHeight) / 2
         leftView.backgroundColor = indicatorColor
         rightView.backgroundColor = indicatorColor
+    }
+
+    public override func accessibilityIncrement() {
+        accessibilityIncrementHandler?()
+    }
+
+    public override func accessibilityDecrement() {
+        accessibilityDecrementHandler?()
     }
 }

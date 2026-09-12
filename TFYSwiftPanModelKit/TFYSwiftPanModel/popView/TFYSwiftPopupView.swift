@@ -50,6 +50,7 @@ open class TFYSwiftPopupView: UIView {
     private var dismissGestures: [UIGestureRecognizer] = []
     private var isDismissing = false
     private var dismissalCompletions: [() -> Void] = []
+    private var backgroundColorBeforeTheme: UIColor?
 
     public override init(frame: CGRect) {
         super.init(frame: frame)
@@ -82,11 +83,14 @@ open class TFYSwiftPopupView: UIView {
             return
         }
 
-        let config = configuration ?? self.configuration
-        guard config.validate() else {
+        let sourceConfiguration = configuration ?? self.configuration
+        guard sourceConfiguration.validate(),
+              let config = sourceConfiguration.copy() as? TFYSwiftPopupViewConfiguration else {
             completion?()
             return
         }
+        // A presentation is a transaction. Keep a deep snapshot so callers can
+        // safely reuse and mutate their builder configuration for another popup.
         self.configuration = config
 
 
@@ -118,6 +122,7 @@ open class TFYSwiftPopupView: UIView {
                 strategy: config.priorityStrategy,
                 maxWaitingTime: config.maxWaitingTime > 0 ? config.maxWaitingTime : TFYSwiftPopupPriorityManager.shared.defaultMaxWaitingTime,
                 canBeReplaced: config.canBeReplacedByHigherPriority,
+                onDiscard: completion,
                 showBlock: showBlock
             )
             if !accepted {
@@ -182,7 +187,11 @@ open class TFYSwiftPopupView: UIView {
             return
         }
 
-        animator.dismiss(contentView: self, backgroundView: bgView, animated: animated) { [weak self] in
+        animator.dismiss(
+            contentView: self,
+            backgroundView: bgView,
+            animated: animated && !UIAccessibility.isReduceMotionEnabled
+        ) { [weak self] in
             guard let self else { return }
             self.completeDismiss(backgroundView: bgView)
         }
@@ -216,6 +225,7 @@ open class TFYSwiftPopupView: UIView {
         alpha = 1
         transform = .identity
         layer.transform = CATransform3DIdentity
+        backgroundColorBeforeTheme = self.backgroundColor
         applyTheme(from: configuration)
         applyContainerAppearance(from: configuration)
 
@@ -264,13 +274,20 @@ open class TFYSwiftPopupView: UIView {
         delegate?.popupViewWillAppear(self)
         isShowing = true
 
-        animator.display(contentView: self, backgroundView: bgView, animated: animated) { [weak self] in
+        animator.display(
+            contentView: self,
+            backgroundView: bgView,
+            animated: animated && !UIAccessibility.isReduceMotionEnabled
+        ) { [weak self] in
             guard let self else { return }
             guard self.isShowing, !self.isDismissing else {
                 completion?()
                 return
             }
             self.delegate?.popupViewDidAppear(self)
+            if self.configuration.enableAccessibility {
+                UIAccessibility.post(notification: .screenChanged, argument: self)
+            }
             completion?()
         }
     }
@@ -360,14 +377,15 @@ open class TFYSwiftPopupView: UIView {
 
     private func resolvedBlurStyle(for configuration: TFYSwiftPopupViewConfiguration) -> UIBlurEffect.Style {
         if configuration.theme == .default {
-            return traitCollection.userInterfaceStyle == .dark ? .systemMaterialDark : .systemMaterialLight
+            return .systemMaterial
         }
         return configuration.blurStyle
     }
 
     private func applyTheme(from configuration: TFYSwiftPopupViewConfiguration) {
-        let theme = configuration.theme == .default ? TFYSwiftPopupViewConfiguration.currentTheme() : configuration.theme
-        switch theme {
+        switch configuration.theme {
+        case .default:
+            if backgroundColor == nil { backgroundColor = .systemBackground }
         case .light:
             if backgroundColor == nil { backgroundColor = .systemBackground }
         case .dark:
@@ -376,8 +394,6 @@ open class TFYSwiftPopupView: UIView {
             if let color = configuration.customThemeBackgroundColor {
                 backgroundColor = color
             }
-        case .default:
-            break
         }
     }
 
@@ -411,12 +427,17 @@ open class TFYSwiftPopupView: UIView {
             backgroundView?.isAccessibilityElement = false
             return
         }
-        accessibilityViewIsModal = true
+        accessibilityViewIsModal = !configuration.isPenetrable
         isAccessibilityElement = false
         accessibilityLabel = NSLocalizedString("Popup", comment: "Popup content accessibility label")
-        backgroundView?.isAccessibilityElement = true
-        backgroundView?.accessibilityLabel = NSLocalizedString("Dismiss background", comment: "Popup dimmed background")
-        backgroundView?.accessibilityTraits = configuration.isDismissible && configuration.dismissOnBackgroundTap ? .button : .none
+        let backgroundCanDismiss = !configuration.isPenetrable
+            && configuration.isDismissible
+            && configuration.dismissOnBackgroundTap
+        backgroundView?.isAccessibilityElement = backgroundCanDismiss
+        backgroundView?.accessibilityLabel = backgroundCanDismiss
+            ? NSLocalizedString("Dismiss popup", comment: "Popup dimmed background")
+            : nil
+        backgroundView?.accessibilityTraits = backgroundCanDismiss ? .button : .none
     }
 
     private func setupDismissGestures(configuration: TFYSwiftPopupViewConfiguration) {
@@ -464,16 +485,6 @@ open class TFYSwiftPopupView: UIView {
     @objc private func handleSwipeToDismiss(_ swipe: UISwipeGestureRecognizer) {
         guard configuration.isDismissible else { return }
         dismissAnimated(true)
-    }
-
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        guard isShowing,
-              traitCollection.hasDifferentColorAppearance(comparedTo: previousTraitCollection) else { return }
-        applyTheme(from: configuration)
-        if configuration.backgroundStyle == .blur, let bg = backgroundView {
-            bg.blurEffectStyle = resolvedBlurStyle(for: configuration)
-        }
     }
 
     open override func layoutSubviews() {
@@ -628,6 +639,8 @@ open class TFYSwiftPopupView: UIView {
         alpha = 1
         transform = .identity
         layer.transform = CATransform3DIdentity
+        backgroundColor = backgroundColorBeforeTheme
+        backgroundColorBeforeTheme = nil
         TFYSwiftPopupPriorityManager.shared.remove(popup: self)
         delegate?.popupViewDidDisappear(self)
         let completions = dismissalCompletions

@@ -36,6 +36,7 @@ public final class TFYSwiftPanModalPresentationAnimator: NSObject, UIViewControl
     }
 
     public func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
+        guard !UIAccessibility.isReduceMotionEnabled else { return 0 }
         let key: UITransitionContextViewControllerKey = transitionStyle == .presentation ? .to : .from
         guard let vc = transitionContext?.viewController(forKey: key) else { return kTransitionDuration }
         return transitionStyle == .presentation ? vc.transitionDuration() : vc.dismissalDuration()

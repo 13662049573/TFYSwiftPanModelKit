@@ -264,6 +264,10 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
     private func addDragIndicatorView() {
         if dragIndicatorView == nil {
             dragIndicatorView = presentable.customIndicatorView() ?? TFYSwiftPanIndicatorView()
+            if let indicator = dragIndicatorView as? TFYSwiftPanIndicatorView {
+                indicator.accessibilityIncrementHandler = { [weak self] in self?.transitionToNextExpandedState() }
+                indicator.accessibilityDecrementHandler = { [weak self] in self?.transitionToNextCollapsedState() }
+            }
         }
         dragIndicatorView?.isHidden = false
         handler.dragIndicatorView = dragIndicatorView
@@ -273,6 +277,27 @@ public final class TFYSwiftPanModalPresentationController: UIPresentationControl
         }
         updateDragIndicatorViewFrame()
         dragIndicatorView?.didChange(to: .normal)
+    }
+
+    private func transitionToNextExpandedState() {
+        switch currentPresentationState {
+        case .short: transition(to: hasDistinctMediumState ? .medium : .long, animated: true)
+        case .medium: transition(to: .long, animated: true)
+        case .long: break
+        }
+    }
+
+    private func transitionToNextCollapsedState() {
+        switch currentPresentationState {
+        case .long: transition(to: hasDistinctMediumState ? .medium : .short, animated: true)
+        case .medium: transition(to: .short, animated: true)
+        case .short: break
+        }
+    }
+
+    private var hasDistinctMediumState: Bool {
+        abs(handler.mediumFormYPosition - handler.shortFormYPosition) > 1
+            && abs(handler.mediumFormYPosition - handler.longFormYPosition) > 1
     }
 
     private func updateDragIndicatorViewFrame() {

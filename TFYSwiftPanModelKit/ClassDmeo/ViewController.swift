@@ -37,6 +37,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
             DemoItem(title: "键盘自动避让", detail: "输入框、键盘偏移与面板布局更新", symbol: "keyboard", action: #selector(showPanModalKeyboard)),
             DemoItem(title: "屏幕边缘交互关闭", detail: "从左边缘向右滑动关闭", symbol: "arrow.right.to.line", action: #selector(showEdgeInteractive)),
             DemoItem(title: "防频繁点击", detail: "快速重复触发、提示和触觉反馈", symbol: "hand.raised", action: #selector(showFrequentTap)),
+            DemoItem(title: "自定义指示器与生命周期", detail: "验证可覆写回调、状态进度和自定义拖拽柄", symbol: "point.3.filled.connected.trianglepath.dotted", action: #selector(showPanModalLifecycle)),
         ]),
         DemoSection(title: "PopupView · 居中动画", items: [
             DemoItem(title: "FadeInOut", detail: "透明度渐入渐出", symbol: "circle.lefthalf.filled", action: #selector(popFade)),
@@ -99,6 +100,9 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
             DemoItem(title: "Replace 高优先级替换", detail: "Urgent 替换可被替换的 Low", symbol: "arrow.triangle.2.circlepath", action: #selector(showPriorityReplace)),
             DemoItem(title: "Overlay 叠加", detail: "Normal 与 High 同时显示", symbol: "square.stack.3d.up", action: #selector(showPriorityOverlay)),
             DemoItem(title: "Reject 拒绝策略", detail: "容量已满时拒绝第二个展示", symbol: "nosign", action: #selector(showPriorityReject)),
+            DemoItem(title: "Pause / Resume", detail: "暂停时只入队，恢复后自动补位展示", symbol: "pause.circle", action: #selector(showPriorityPauseResume)),
+            DemoItem(title: "等待超时清理", detail: "等待项过期、释放并执行丢弃回调", symbol: "hourglass", action: #selector(showPriorityExpiry)),
+            DemoItem(title: "双槽精确替换", detail: "Urgent 只替换一个最低优先级弹窗", symbol: "rectangle.2.swap", action: #selector(showPrioritySingleReplacement)),
         ]),
     ]
 
@@ -114,14 +118,13 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 72
         tableView.keyboardDismissMode = .onDrag
-        tableView.tableHeaderView = makeCatalogHeader()
 
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
         searchController.searchBar.placeholder = "搜索动画、交互或 API"
+        searchController.searchBar.searchBarStyle = .minimal
         searchController.searchBar.accessibilityIdentifier = "demo.search"
-        navigationItem.searchController = searchController
-        navigationItem.hidesSearchBarWhenScrolling = false
+        tableView.tableHeaderView = makeCatalogHeader()
         definesPresentationContext = true
 
         // 防止历史会话中卡住的优先级队列影响新演示
@@ -194,12 +197,16 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     private func makeCatalogHeader() -> UIView {
         let count = allSections.reduce(0) { $0 + $1.items.count }
-        let header = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 116))
+        let header = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 172))
         let card = UIView()
         card.backgroundColor = .secondarySystemGroupedBackground
         card.layer.cornerRadius = 18
         card.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(card)
+
+        let searchBar = searchController.searchBar
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        header.addSubview(searchBar)
 
         let title = UILabel()
         title.text = "完整能力目录"
@@ -219,13 +226,17 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
             card.topAnchor.constraint(equalTo: header.topAnchor, constant: 8),
             card.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
-            card.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -8),
+            card.heightAnchor.constraint(equalToConstant: 100),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 18),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -18),
             stack.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+            searchBar.topAnchor.constraint(equalTo: card.bottomAnchor, constant: 4),
+            searchBar.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 8),
+            searchBar.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -8),
+            searchBar.bottomAnchor.constraint(equalTo: header.bottomAnchor, constant: -4),
         ])
-        header.isAccessibilityElement = true
-        header.accessibilityLabel = "完整能力目录，\(count) 个可运行场景"
+        card.isAccessibilityElement = true
+        card.accessibilityLabel = "完整能力目录，\(count) 个可运行场景"
         return header
     }
 
@@ -237,6 +248,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
     @objc private func showCustomStyle() { presentPanModal(DemoCustomStyleVC()) }
     @objc private func showEdgeInteractive() { presentPanModal(DemoEdgeInteractiveVC()) }
     @objc private func showFrequentTap() { presentPanModal(DemoFrequentTapVC()) }
+    @objc private func showPanModalLifecycle() { presentPanModal(DemoPanModalLifecycleVC()) }
     @objc private func showPageSheetStyle() {
         presentPanModal(DemoPanModalVC(mode: .long, presentingStyle: .pageSheet))
     }
@@ -250,28 +262,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     // MARK: - PanModal ContentView
     @objc private func showContentView() {
-        let cv = TFYSwiftPanModalContentView(frame: .zero)
-        cv.backgroundColor = .systemBackground
-        let label = UILabel()
-        label.text = "View 弹窗\n无需 ViewController\n支持拖拽手势"
-        label.numberOfLines = 0
-        label.textAlignment = .center
-        label.textColor = .label
-        label.translatesAutoresizingMaskIntoConstraints = false
-        cv.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: cv.centerXAnchor),
-            label.topAnchor.constraint(equalTo: cv.topAnchor, constant: 40),
-        ])
-        let btn = UIButton(type: .system)
-        btn.setTitle("关闭", for: .normal)
-        btn.translatesAutoresizingMaskIntoConstraints = false
-        cv.addSubview(btn)
-        NSLayoutConstraint.activate([
-            btn.centerXAnchor.constraint(equalTo: cv.centerXAnchor),
-            btn.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 20),
-        ])
-        btn.addAction(UIAction { _ in cv.dismiss(animated: true, completion: nil) }, for: .touchUpInside)
+        let cv = DemoCustomPanModalContentView(frame: .zero)
         cv.present(in: view.window)
     }
 
@@ -435,9 +426,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
         expectedOrder: String
     ) {
         guard let window = view.window else { return }
-        let manager = TFYSwiftPopupPriorityManager.shared
-        manager.clearAllQueues()
-        manager.maxSimultaneousPopups = 1
+        _ = preparePriorityDemo()
         for item in items {
             let config = TFYSwiftPopupViewConfiguration()
                 .enablePriorityManagement(true)
@@ -458,6 +447,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     @objc private func showPriorityReplace() {
         guard let window = view.window else { return }
+        _ = preparePriorityDemo()
 
         let lowConfig = TFYSwiftPopupViewConfiguration()
             .enablePriorityManagement(true)
@@ -491,6 +481,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     @objc private func showPriorityOverlay() {
         guard let window = view.window else { return }
+        _ = preparePriorityDemo()
 
         let baseConfig = TFYSwiftPopupViewConfiguration()
             .enablePriorityManagement(true)
@@ -522,9 +513,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
     @objc private func showPriorityReject() {
         guard let window = view.window else { return }
-        let manager = TFYSwiftPopupPriorityManager.shared
-        manager.clearAllQueues()
-        manager.maxSimultaneousPopups = 1
+        _ = preparePriorityDemo()
 
         let baseConfig = TFYSwiftPopupViewConfiguration()
             .enablePriorityManagement(true)
@@ -547,6 +536,131 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
                 self.updatePopupMessage(base, text: rejected.isShowing ? "Reject 未生效" : "✅ 第二个弹窗已被 Reject")
             }
         }
+    }
+
+    @objc private func showPriorityPauseResume() {
+        guard let window = view.window else { return }
+        let manager = preparePriorityDemo()
+        manager.pauseQueue()
+
+        let queuedConfig = TFYSwiftPopupViewConfiguration()
+            .enablePriorityManagement(true)
+            .priority(.high)
+            .priorityStrategy(.queue)
+            .maxWaitingTime(5)
+            .autoDismissDelay(2.5)
+        let queuedAnimator = TFYSwiftPopupSpringAnimator()
+        queuedAnimator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 310, height: 190))
+        let queued = makeLabeledPopup(
+            size: CGSize(width: 310, height: 190),
+            text: "✅ Queue 已恢复\n暂停期间没有提前展示"
+        )
+        queued.show(in: window, animator: queuedAnimator, configuration: queuedConfig, animated: true)
+
+        let statusConfig = TFYSwiftPopupViewConfiguration()
+            .enablePriorityManagement(false)
+            .dismissOnBackgroundTap(false)
+            .autoDismissDelay(1)
+        let statusAnimator = TFYSwiftPopupFadeInOutAnimator()
+        statusAnimator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 300, height: 170))
+        let status = makeLabeledPopup(
+            size: CGSize(width: 300, height: 170),
+            text: "⏸ Queue 已暂停\nHigh 请求当前只进入等待队列\n1 秒后自动 Resume"
+        )
+        status.show(in: window, animator: statusAnimator, configuration: statusConfig, animated: true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            manager.resumeQueue()
+        }
+    }
+
+    @objc private func showPriorityExpiry() {
+        guard let window = view.window else { return }
+        _ = preparePriorityDemo()
+
+        let blockerConfig = TFYSwiftPopupViewConfiguration()
+            .enablePriorityManagement(true)
+            .priority(.normal)
+            .priorityStrategy(.overlay)
+            .canBeReplacedByHigherPriority(false)
+            .dismissOnBackgroundTap(false)
+            .autoDismissDelay(3)
+        let blockerAnimator = TFYSwiftPopupFadeInOutAnimator()
+        blockerAnimator.layout = .center(.layout(offsetY: 0, offsetX: 0, width: 320, height: 200))
+        let blocker = makeLabeledPopup(
+            size: CGSize(width: 320, height: 200),
+            text: "Normal 占用展示槽\nLow 等待上限：0.8 秒"
+        )
+        blocker.show(in: window, animator: blockerAnimator, configuration: blockerConfig, animated: true)
+
+        let waitingConfig = TFYSwiftPopupViewConfiguration()
+            .enablePriorityManagement(true)
+            .priority(.low)
+            .priorityStrategy(.queue)
+            .maxWaitingTime(0.8)
+        let waiting = makeLabeledPopup(size: CGSize(width: 260, height: 150), text: "不应展示")
+        waiting.show(
+            in: window,
+            animator: TFYSwiftPopupSpringAnimator(),
+            configuration: waitingConfig,
+            animated: true
+        ) { [weak self, weak blocker, weak waiting] in
+            guard let self, let blocker, let waiting, !waiting.isShowing else { return }
+            let snapshot = TFYSwiftPopupPriorityManager.shared.snapshot()
+            self.updatePopupMessage(
+                blocker,
+                text: "✅ Low 已过期并释放\nWaiting：\(snapshot.waitingCount)\n回调在主线程完成"
+            )
+        }
+    }
+
+    @objc private func showPrioritySingleReplacement() {
+        guard let window = view.window else { return }
+        let manager = preparePriorityDemo(maxSimultaneousPopups: 2)
+
+        for (index, offset) in [-70.0, 70.0].enumerated() {
+            let config = TFYSwiftPopupViewConfiguration()
+                .enablePriorityManagement(true)
+                .priority(.low)
+                .priorityStrategy(.overlay)
+                .canBeReplacedByHigherPriority(true)
+                .dismissOnBackgroundTap(false)
+                .autoDismissDelay(4)
+            let animator = TFYSwiftPopupFadeInOutAnimator()
+            animator.layout = .center(.layout(offsetY: offset, offsetX: 0, width: 270, height: 130))
+            let popup = makeLabeledPopup(
+                size: CGSize(width: 270, height: 130),
+                text: "Low 槽位 \(index + 1)"
+            )
+            popup.show(in: window, animator: animator, configuration: config, animated: true)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            guard let self else { return }
+            let config = TFYSwiftPopupViewConfiguration()
+                .enablePriorityManagement(true)
+                .priority(.urgent)
+                .priorityStrategy(.queue)
+                .canBeReplacedByHigherPriority(false)
+                .autoDismissDelay(3)
+            let animator = TFYSwiftPopupSpringAnimator()
+            animator.layout = .center(.layout(offsetY: -70, offsetX: 0, width: 280, height: 140))
+            let popup = self.makeLabeledPopup(
+                size: CGSize(width: 280, height: 140),
+                text: "✅ Urgent 仅替换一个 Low\n展示数：\(manager.snapshot().displayedCount) / 2"
+            )
+            popup.show(in: window, animator: animator, configuration: config, animated: true)
+        }
+    }
+
+    private func preparePriorityDemo(maxSimultaneousPopups: Int = 1) -> TFYSwiftPopupPriorityManager {
+        let manager = TFYSwiftPopupPriorityManager.shared
+        manager.resumeQueue()
+        manager.clearAllQueues()
+        manager.maxSimultaneousPopups = maxSimultaneousPopups
+        manager.autoCleanupExpiredPopups = true
+        manager.enforceMaxPopupCount(0)
+        return manager
     }
 
     @objc private func showNonDismissiblePopup() {
@@ -761,12 +875,12 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
         let title = UILabel()
         title.text = "PopupView 弹窗"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let btn = UIButton(type: .system)
         btn.setTitle("关 闭", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        btn.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         btn.backgroundColor = .systemBlue
         btn.setTitleColor(.white, for: .normal)
         btn.layer.cornerRadius = 8
@@ -781,7 +895,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
             stack.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
             stack.centerYAnchor.constraint(equalTo: popup.centerYAnchor),
             btn.widthAnchor.constraint(equalToConstant: 160),
-            btn.heightAnchor.constraint(equalToConstant: 40),
+            btn.heightAnchor.constraint(equalToConstant: 44),
         ])
         btn.addAction(UIAction { [weak popup] _ in popup?.dismissAnimated(true) }, for: .touchUpInside)
         return popup
@@ -832,7 +946,7 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
         let title = UILabel()
         title.text = "BottomSheet 面板"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
         popup.addSubview(title)
@@ -847,14 +961,14 @@ final class ViewController: UITableViewController, UISearchResultsUpdating, TFYS
 
         let btn = UIButton(type: .system)
         btn.setTitle("关闭面板", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
+        btn.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         btn.translatesAutoresizingMaskIntoConstraints = false
         popup.addSubview(btn)
 
         NSLayoutConstraint.activate([
             handle.topAnchor.constraint(equalTo: popup.topAnchor, constant: 8),
             handle.centerXAnchor.constraint(equalTo: popup.centerXAnchor),
-            handle.widthAnchor.constraint(equalToConstant: 40),
+            handle.widthAnchor.constraint(equalToConstant: 44),
             handle.heightAnchor.constraint(equalToConstant: 5),
             title.topAnchor.constraint(equalTo: handle.bottomAnchor, constant: 20),
             title.centerXAnchor.constraint(equalTo: popup.centerXAnchor),

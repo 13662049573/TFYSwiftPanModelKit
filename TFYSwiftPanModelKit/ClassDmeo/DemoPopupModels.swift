@@ -103,7 +103,7 @@ final class DemoPopupContentVC: TFYSwiftPopupContentViewController {
     private func installStack(title: String, detail: String) {
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .boldSystemFont(ofSize: 18)
+        titleLabel.font = .preferredFont(forTextStyle: .headline)
         titleLabel.textAlignment = .center
 
         let desc = UILabel()
@@ -114,7 +114,7 @@ final class DemoPopupContentVC: TFYSwiftPopupContentViewController {
 
         let btn = UIButton(type: .system)
         btn.setTitle("关闭", for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        btn.titleLabel?.font = .preferredFont(forTextStyle: .headline)
         btn.addAction(UIAction { [weak self] _ in self?.dismissPopup() }, for: .touchUpInside)
 
         let stack = UIStackView(arrangedSubviews: [titleLabel, desc, btn])
@@ -141,7 +141,7 @@ final class DemoConfiguredPopupContentVC: TFYSwiftPopupContentViewController {
         view.backgroundColor = .secondarySystemBackground
         let title = UILabel()
         title.text = "自定义配置 VC 弹窗"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -194,7 +194,7 @@ final class DemoNonDismissiblePopupVC: TFYSwiftPopupContentViewController {
 
         let title = UILabel()
         title.text = "不可手势关闭"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -248,7 +248,7 @@ final class DemoDragSwipePopupVC: TFYSwiftPopupContentViewController {
 
         let title = UILabel()
         title.text = "拖拽 / 滑动关闭"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -315,7 +315,7 @@ final class DemoKeyboardPopupVC: TFYSwiftPopupContentViewController {
 
         let title = UILabel()
         title.text = "键盘避让 (\(modeName))"
-        title.font = .boldSystemFont(ofSize: 17)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let field = UITextField()
@@ -339,7 +339,7 @@ final class DemoKeyboardPopupVC: TFYSwiftPopupContentViewController {
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            field.heightAnchor.constraint(equalToConstant: 40),
+            field.heightAnchor.constraint(equalToConstant: 44),
         ])
     }
 
@@ -373,7 +373,7 @@ final class DemoPenetrablePopupVC: TFYSwiftPopupContentViewController {
         let title = UILabel()
         title.text = "穿透背景"
         title.textColor = .white
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -422,7 +422,7 @@ final class DemoAutoDismissPopupVC: TFYSwiftPopupContentViewController {
 
         let title = UILabel()
         title.text = "自动关闭"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -469,7 +469,7 @@ final class DemoAccessibilityPopupVC: TFYSwiftPopupContentViewController {
 
         let title = UILabel()
         title.text = "无障碍 Popup"
-        title.font = .boldSystemFont(ofSize: 18)
+        title.font = .preferredFont(forTextStyle: .headline)
         title.textAlignment = .center
 
         let desc = UILabel()

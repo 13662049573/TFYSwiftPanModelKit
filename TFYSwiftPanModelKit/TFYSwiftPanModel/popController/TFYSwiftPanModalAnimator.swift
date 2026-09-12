@@ -42,7 +42,7 @@ public enum TFYSwiftPanModalAnimator {
         let duration = isPresentation
             ? (config?.transitionDuration() ?? defaultDuration)
             : (config?.dismissalDuration() ?? defaultDuration)
-        let d = duration * max(animationPercent, 0)
+        let d = UIAccessibility.isReduceMotionEnabled ? 0 : duration * max(animationPercent, 0)
         let springDamping = config?.springDamping() ?? 1.0
         let options = config?.transitionAnimationOptions() ?? .curveEaseInOut
         UIView.animate(withDuration: d, delay: 0, usingSpringWithDamping: springDamping,
@@ -55,7 +55,8 @@ public enum TFYSwiftPanModalAnimator {
         duration: TimeInterval,
         completion: ((Bool) -> Void)?
     ) {
-        UIView.animate(withDuration: duration, delay: 0, options: .curveLinear,
+        let effectiveDuration = UIAccessibility.isReduceMotionEnabled ? 0 : duration
+        UIView.animate(withDuration: effectiveDuration, delay: 0, options: .curveLinear,
                        animations: animations, completion: completion)
     }
 }

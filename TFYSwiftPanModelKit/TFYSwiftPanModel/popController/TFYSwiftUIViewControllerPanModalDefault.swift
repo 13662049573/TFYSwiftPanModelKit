@@ -57,6 +57,7 @@ extension UIViewController: TFYSwiftPanModalPresentable {
     @objc open func maxAllowedDistanceToLeftScreenEdgeForPanInteraction() -> CGFloat { 0 }
     @objc open func minHorizontalVelocityToTriggerScreenEdgeDismiss() -> CGFloat { 500 }
     @objc open func presentingVCAnimationStyle() -> PresentingViewControllerAnimationStyle { .none }
+    @objc open func customPresentingVCAnimation() -> TFYPresentingViewControllerAnimatedTransitioning? { nil }
     @objc open func isUserInteractionEnabled() -> Bool { true }
     @objc open func isHapticFeedbackEnabled() -> Bool { true }
     @objc open func allowsTouchEventsPassingThroughTransitionView() -> Bool { false }
@@ -64,10 +65,30 @@ extension UIViewController: TFYSwiftPanModalPresentable {
     @objc open func cornerRadius() -> CGFloat { 8 }
     @objc open func contentShadow() -> TFYSwiftPanModalShadow { .none }
     @objc open func showDragIndicator() -> Bool { !allowsTouchEventsPassingThroughTransitionView() }
+    @objc open func customIndicatorView() -> (UIView & TFYSwiftPanModalIndicatorProtocol)? { nil }
     @objc open func isAutoHandleKeyboardEnabled() -> Bool { true }
     @objc open func keyboardOffsetFromInputView() -> CGFloat { 5 }
     @objc open func shouldPreventFrequentTapping() -> Bool { true }
     @objc open func frequentTapPreventionInterval() -> TimeInterval { 1 }
     @objc open func shouldShowFrequentTapPreventionHint() -> Bool { false }
     @objc open func frequentTapPreventionHintText() -> String? { "请稍后再试" }
+
+    // These hooks must live on UIViewController itself. Leaving them only in the
+    // protocol extension makes calls through TFYSwiftPanModalPresentable use the
+    // static default implementation and prevents subclasses from overriding them.
+    @objc open func panModalFrequentTapPreventionStateChanged(isPrevented: Bool, remainingTime: TimeInterval) {}
+    @objc open func shouldRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) -> Bool { true }
+    @objc open func willRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    @objc open func didRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    @objc open func didEndRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    @objc open func shouldPrioritizePanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) -> Bool { false }
+    @objc open func panModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer, dismissPercent: CGFloat) {}
+    @objc open func shouldTransition(to state: PresentationState) -> Bool { true }
+    @objc open func willTransition(to state: PresentationState) {}
+    @objc open func didChangeTransition(to state: PresentationState) {}
+    @objc open func panModalTransitionWillBegin() {}
+    @objc open func panModalTransitionDidFinish() {}
+    @objc open func presentedViewDidMoveToSuperView() {}
+    @objc open func panModalWillDismiss() {}
+    @objc open func panModalDidDismiss() {}
 }

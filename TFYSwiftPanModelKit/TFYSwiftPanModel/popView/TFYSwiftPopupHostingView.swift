@@ -18,7 +18,14 @@ open class TFYSwiftPopupHostingView: TFYSwiftPopupView {
 
     private var sizeConstraints: [NSLayoutConstraint] = []
     private let bridgeDelegate = TFYSwiftPopupHostingBridge()
-    private var hasForwardedAppearance = false
+    private enum AppearanceState {
+        case hidden
+        case appearing
+        case visible
+        case disappearing
+    }
+
+    private var appearanceState: AppearanceState = .hidden
 
     public init(contentViewController: UIViewController) {
         self.contentViewController = contentViewController
@@ -79,11 +86,20 @@ open class TFYSwiftPopupHostingView: TFYSwiftPopupView {
     /// 移除内容 view 并释放强引用
     public func uninstallContent() {
         guard let content = contentViewController else { return }
-        if hasForwardedAppearance {
+        switch appearanceState {
+        case .appearing:
+            content.endAppearanceTransition()
             content.beginAppearanceTransition(false, animated: false)
             content.endAppearanceTransition()
-            hasForwardedAppearance = false
+        case .visible:
+            content.beginAppearanceTransition(false, animated: false)
+            content.endAppearanceTransition()
+        case .disappearing:
+            content.endAppearanceTransition()
+        case .hidden:
+            break
         }
+        appearanceState = .hidden
         if content.parent != nil {
             content.willMove(toParent: nil)
             content.removeFromParent()
@@ -99,11 +115,34 @@ open class TFYSwiftPopupHostingView: TFYSwiftPopupView {
         }
     }
 
-    fileprivate func markAppearanceForwarded(_ forwarded: Bool) {
-        hasForwardedAppearance = forwarded
+    fileprivate func beginContentAppearance(animated: Bool) {
+        guard appearanceState == .hidden, let contentViewController else { return }
+        contentViewController.beginAppearanceTransition(true, animated: animated)
+        appearanceState = .appearing
     }
 
-    fileprivate var isAppearanceForwarded: Bool { hasForwardedAppearance }
+    fileprivate func finishContentAppearance() {
+        guard appearanceState == .appearing, let contentViewController else { return }
+        contentViewController.endAppearanceTransition()
+        appearanceState = .visible
+    }
+
+    fileprivate func beginContentDisappearance(animated: Bool) {
+        guard let contentViewController else { return }
+        if appearanceState == .appearing {
+            contentViewController.endAppearanceTransition()
+            appearanceState = .visible
+        }
+        guard appearanceState == .visible else { return }
+        contentViewController.beginAppearanceTransition(false, animated: animated)
+        appearanceState = .disappearing
+    }
+
+    fileprivate func finishContentDisappearance() {
+        guard appearanceState == .disappearing, let contentViewController else { return }
+        contentViewController.endAppearanceTransition()
+        appearanceState = .hidden
+    }
 }
 
 // MARK: - Bridge Delegate
@@ -117,35 +156,25 @@ private final class TFYSwiftPopupHostingBridge: NSObject, TFYSwiftPopupViewDeleg
 
     func popupViewWillAppear(_ popupView: TFYSwiftPopupView) {
         guard let content = contentViewController else { return }
-        if hostingView?.isAppearanceForwarded != true {
-            content.beginAppearanceTransition(true, animated: true)
-            hostingView?.markAppearanceForwarded(true)
-        }
+        hostingView?.beginContentAppearance(animated: !UIAccessibility.isReduceMotionEnabled)
         content.popupWillAppear()
     }
 
     func popupViewDidAppear(_ popupView: TFYSwiftPopupView) {
         guard let content = contentViewController else { return }
-        if hostingView?.isAppearanceForwarded == true {
-            content.endAppearanceTransition()
-        }
+        hostingView?.finishContentAppearance()
         content.popupDidAppear()
     }
 
     func popupViewWillDisappear(_ popupView: TFYSwiftPopupView) {
         guard let content = contentViewController else { return }
-        if hostingView?.isAppearanceForwarded == true {
-            content.beginAppearanceTransition(false, animated: true)
-        }
+        hostingView?.beginContentDisappearance(animated: !UIAccessibility.isReduceMotionEnabled)
         content.popupWillDisappear()
     }
 
     func popupViewDidDisappear(_ popupView: TFYSwiftPopupView) {
         let content = contentViewController
-        if let content, hostingView?.isAppearanceForwarded == true {
-            content.endAppearanceTransition()
-            hostingView?.markAppearanceForwarded(false)
-        }
+        hostingView?.finishContentDisappearance()
         content?.popupDidDisappear()
         cleanupStorage(for: content)
     }

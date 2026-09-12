@@ -38,7 +38,7 @@ final class DemoPanModalVC: UIViewController {
         }
         let title = UILabel()
         title.text = modeText
-        title.font = .boldSystemFont(ofSize: 20)
+        title.font = .preferredFont(forTextStyle: .title3)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -59,7 +59,7 @@ final class DemoPanModalVC: UIViewController {
             button.setTitle(title, for: .normal)
             button.backgroundColor = .tertiarySystemFill
             button.layer.cornerRadius = 8
-            button.heightAnchor.constraint(equalToConstant: 36).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 44).isActive = true
             button.addAction(UIAction { [weak self] _ in
                 guard let self else { return }
                 self.statusLabel.text = "正在切换：\(state.demoName)"
@@ -202,7 +202,7 @@ final class DemoScrollableVC: UIViewController, UITableViewDataSource {
         view.backgroundColor = .systemBackground
         let header = UILabel()
         header.text = "ScrollView 弹窗"
-        header.font = .boldSystemFont(ofSize: 20)
+        header.font = .preferredFont(forTextStyle: .title3)
         header.textAlignment = .center
         header.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(header)
@@ -242,7 +242,7 @@ final class DemoCustomStyleVC: UIViewController {
         view.backgroundColor = UIColor.systemIndigo.withAlphaComponent(0.1)
         let title = UILabel()
         title.text = "自定义样式弹窗"
-        title.font = .boldSystemFont(ofSize: 22)
+        title.font = .preferredFont(forTextStyle: .title2)
         title.textColor = .systemIndigo
         title.textAlignment = .center
 
@@ -295,7 +295,7 @@ final class DemoEdgeInteractiveVC: UIViewController {
 
         let title = UILabel()
         title.text = "边缘滑动关闭"
-        title.font = .boldSystemFont(ofSize: 20)
+        title.font = .preferredFont(forTextStyle: .title3)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -335,7 +335,7 @@ final class DemoFrequentTapVC: UIViewController {
 
         let title = UILabel()
         title.text = "防频繁点击"
-        title.font = .boldSystemFont(ofSize: 20)
+        title.font = .preferredFont(forTextStyle: .title3)
         title.textAlignment = .center
 
         let desc = UILabel()
@@ -369,4 +369,177 @@ final class DemoFrequentTapVC: UIViewController {
     override func frequentTapPreventionHintText() -> String? { "点击太快了，请稍后再试" }
     override func isHapticFeedbackEnabled() -> Bool { true }
     override func originPresentationState() -> PresentationState { .short }
+}
+
+// MARK: - Pure UIView customization
+
+final class DemoCustomPanModalContentView: TFYSwiftPanModalContentView {
+    private let statusLabel = UILabel()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        configureView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        configureView()
+    }
+
+    private func configureView() {
+        backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "可继承的纯 UIView PanModal"
+        title.font = .preferredFont(forTextStyle: .title3)
+        title.adjustsFontForContentSizeCategory = true
+        title.textAlignment = .center
+
+        let detail = UILabel()
+        detail.text = "无需 UIViewController，也可覆写高度、背景、圆角与生命周期。"
+        detail.font = .preferredFont(forTextStyle: .body)
+        detail.adjustsFontForContentSizeCategory = true
+        detail.textColor = .secondaryLabel
+        detail.numberOfLines = 0
+        detail.textAlignment = .center
+
+        statusLabel.text = "当前状态：Short"
+        statusLabel.font = .preferredFont(forTextStyle: .footnote)
+        statusLabel.adjustsFontForContentSizeCategory = true
+        statusLabel.textColor = .systemIndigo
+        statusLabel.textAlignment = .center
+
+        let expand = UIButton(type: .system)
+        expand.setTitle("切换到 Long", for: .normal)
+        expand.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        expand.addAction(UIAction { [weak self] _ in self?.panModalTransition(to: .long) }, for: .touchUpInside)
+
+        let close = UIButton(type: .system)
+        close.setTitle("关闭", for: .normal)
+        close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        close.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true, completion: nil) }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [title, detail, statusLabel, expand, close])
+        stack.axis = .vertical
+        stack.spacing = 12
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 36),
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+        ])
+    }
+
+    override func shortFormHeight() -> PanModalHeight { .init(type: .content, height: 280) }
+    override func mediumFormHeight() -> PanModalHeight { .init(type: .content, height: 420) }
+    override func longFormHeight() -> PanModalHeight { .init(type: .content, height: 600) }
+    override func originPresentationState() -> PresentationState { .short }
+    override func cornerRadius() -> CGFloat { 24 }
+    override func backgroundConfig() -> TFYSwiftBackgroundConfig {
+        .config(behavior: .systemVisualEffect).backgroundAlpha(0.55)
+    }
+
+    override func didChangeTransition(to state: PresentationState) {
+        statusLabel.text = "当前状态：\(state.demoName)"
+    }
+}
+
+// MARK: - Override hooks and custom indicator
+
+final class DemoPanModalLifecycleVC: UIViewController {
+    private let statusLabel = UILabel()
+    private var eventCount = 0
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        let title = UILabel()
+        title.text = "生命周期与自定义指示器"
+        title.font = .preferredFont(forTextStyle: .title3)
+        title.adjustsFontForContentSizeCategory = true
+        title.textAlignment = .center
+
+        statusLabel.text = "等待回调…"
+        statusLabel.font = .preferredFont(forTextStyle: .body)
+        statusLabel.adjustsFontForContentSizeCategory = true
+        statusLabel.textColor = .secondaryLabel
+        statusLabel.numberOfLines = 0
+        statusLabel.textAlignment = .center
+
+        let close = UIButton(type: .system)
+        close.setTitle("关闭并验证 Dismiss 回调", for: .normal)
+        close.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        close.addAction(UIAction { [weak self] _ in self?.dismiss(animated: true) }, for: .touchUpInside)
+
+        let stack = UIStackView(arrangedSubviews: [title, statusLabel, close])
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 48),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
+        ])
+    }
+
+    override func shortFormHeight() -> PanModalHeight { .init(type: .content, height: 300) }
+    override func mediumFormHeight() -> PanModalHeight { .init(type: .content, height: 440) }
+    override func longFormHeight() -> PanModalHeight { .init(type: .content, height: 580) }
+    override func customIndicatorView() -> (UIView & TFYSwiftPanModalIndicatorProtocol)? {
+        let indicator = DemoPanModalIndicatorView()
+        indicator.onIncrement = { [weak self] in self?.panModalTransition(to: .long) }
+        indicator.onDecrement = { [weak self] in self?.panModalTransition(to: .short) }
+        return indicator
+    }
+
+    override func panModalTransitionWillBegin() { record("panModalTransitionWillBegin") }
+    override func panModalTransitionDidFinish() { record("panModalTransitionDidFinish") }
+    override func didChangeTransition(to state: PresentationState) { record("didChange → \(state.demoName)") }
+    override func panModalWillDismiss() { record("panModalWillDismiss") }
+
+    private func record(_ event: String) {
+        eventCount += 1
+        statusLabel.text = "回调 #\(eventCount)\n\(event)"
+        statusLabel.accessibilityLabel = "第 \(eventCount) 个回调，\(event)"
+    }
+}
+
+private final class DemoPanModalIndicatorView: UIView, TFYSwiftPanModalIndicatorProtocol {
+    private let label = UILabel()
+    var onIncrement: (() -> Void)?
+    var onDecrement: (() -> Void)?
+
+    func didChange(to state: TFYIndicatorState) {
+        label.text = state == .pullDown ? "松手可下拉" : "上下拖动"
+        backgroundColor = state == .pullDown ? .systemOrange : .systemIndigo
+    }
+
+    func indicatorSize() -> CGSize { CGSize(width: 104, height: 28) }
+
+    func setupSubviews() {
+        layer.cornerRadius = 14
+        backgroundColor = .systemIndigo
+        label.text = "上下拖动"
+        label.textColor = .white
+        label.font = .preferredFont(forTextStyle: .caption1)
+        label.textAlignment = .center
+        label.frame = bounds
+        label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(label)
+        isAccessibilityElement = true
+        accessibilityLabel = "自定义拖拽指示器"
+        accessibilityHint = "上下拖动可改变面板高度"
+        accessibilityTraits = .adjustable
+    }
+
+    override func accessibilityIncrement() {
+        onIncrement?()
+    }
+
+    override func accessibilityDecrement() {
+        onDecrement?()
+    }
 }

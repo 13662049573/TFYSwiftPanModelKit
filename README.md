@@ -1,12 +1,12 @@
 # TFYSwiftPanModelKit
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Swift-5.0-orange.svg" alt="Swift 5.0"/>
+  <img src="https://img.shields.io/badge/Swift-5.9-orange.svg" alt="Swift 5.9"/>
   <img src="https://img.shields.io/badge/iOS-15.0%2B-blue.svg" alt="iOS 15.0+"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT"/>
   <img src="https://img.shields.io/badge/SPM-compatible-brightgreen.svg" alt="SPM"/>
   <img src="https://img.shields.io/badge/CocoaPods-compatible-red.svg" alt="CocoaPods"/>
-  <img src="https://img.shields.io/badge/version-1.1.2-brightgreen.svg" alt="version"/>
+  <img src="https://img.shields.io/badge/version-1.2.0-brightgreen.svg" alt="version"/>
 </p>
 
 <p align="center">
@@ -118,7 +118,7 @@ https://github.com/13662049573/TFYSwiftPanModelKit.git
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.1.2")
+    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.2.0")
 ]
 ```
 
@@ -418,19 +418,31 @@ config.priority = .high
 config.priorityStrategy = .queue
 config.canBeReplacedByHigherPriority = true
 config.maxWaitingTime = 10
-config.maxPopupCount = 10
+config.maxPopupCount = 10 // 0 表示不限制总容量
 
 popup.show(in: window, animator: animator, configuration: config)
 ```
 
 | 策略 | 行为 |
 |------|------|
-| `.queue` | 无可用展示槽时进入队列；更高优先级可替换允许被替换的弹窗 |
-| `.replace` | 强制关闭当前受管理弹窗并立即展示新弹窗 |
+| `.queue` | 无可用展示槽时按“优先级优先、同级 FIFO”排队；更高优先级只替换一个最低优先级的可替换弹窗 |
+| `.replace` | 强制关闭当前受管理弹窗并立即展示新弹窗；总容量已满时清退最低优先级等待项 |
 | `.overlay` | 不受同时展示槽限制，直接叠加展示，但仍受总容量限制 |
 | `.reject` | 无可用槽位且不能替换时立即拒绝，不会静默入队 |
 
-同一个 `TFYSwiftPopupView` 不会被重复加入队列。`show`/`dismissAnimated`、`presentPopup` 和 PanModal 展示入口都可从任意线程调用，实际 UIKit 操作会统一切换到主线程。
+调度器会原子完成容量检查、替换选择与槽位占用，并在主线程执行展示、丢弃回调和通知；并发请求不会突破 `maxSimultaneousPopups`。同一个 `TFYSwiftPopupView` 不会被重复加入队列，替换中的弹窗也不会再次入队。
+
+```swift
+let manager = TFYSwiftPopupPriorityManager.shared
+manager.maxSimultaneousPopups = 2
+manager.pauseQueue()                         // Queue 请求继续入队，但暂不展示
+let state = manager.snapshot()              // 线程安全地读取展示/等待/关闭中状态
+manager.cancelWaitingPopup(popup)            // 取消单个等待项并触发 onDiscard
+manager.clearWaitingQueue()                  // 只清空等待项
+manager.resumeQueue()                        // 自动按优先级补满可用槽位
+```
+
+队列变化会发送 `.tfyPopupQueueDidUpdate`；最高优先级变化会发送 `.tfyPopupPriorityDidChange`，其 `userInfo` 包含 `TFYPopupPriorityNotificationKey.previousPriority` 与 `currentPriority`。`show`/`dismissAnimated`、`presentPopup` 和 PanModal 展示入口都可从任意线程调用，实际 UIKit 操作会统一切换到主线程。
 
 ### 键盘与容器配置
 
@@ -472,6 +484,19 @@ let background = TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
 ```
 
 键盘避让按弹窗与键盘的实际重叠区域计算，兼容浮动键盘和非全屏容器。配置传入 `show` 前可调用 `validate()`；非有限数值、非法比例、负间距或无效队列容量会被拒绝。
+
+---
+
+## 运行完整 Demo
+
+打开根目录下的 `TFYSwiftPanModelKit.xcodeproj`，选择 `TFYSwiftPanModelKit` Scheme 和任意 iOS 15+ 模拟器运行。Demo 提供可搜索的 **64 个真实场景**，覆盖：
+
+- PanModal 的三段高度、滚动联动、纯 UIView、自定义指示器、生命周期、键盘与边缘手势
+- PopupView 的 12 种动画、6 种布局、BottomSheet、拖拽/滑动关闭和自动关闭
+- `presentPopup` 控制器承载、三种键盘避让、VoiceOver、暗色模式与背景穿透
+- Queue / Replace / Overlay / Reject、暂停恢复、等待超时和双槽精确替换等优先级场景，以及容器自动发现与配置链式 API
+
+每个目录项都可以直接点击运行；顶部搜索框可按动画名、交互能力或 API 名过滤。
 
 ---
 
@@ -544,17 +569,39 @@ TFYSwiftPanModel/                   # SPM target 根目录（≈53 个库源文�
 
 ---
 
-## 当前稳定性优化
+## 1.2.0 更新说明（优先级与稳定性升级）
 
-- 优先级队列不再用固定延迟猜测展示结果；取消待展示弹窗后不会继续执行遗留 showBlock，并发请求也会原子遵守同时展示上限
-- BottomSheet 高度在展示时按实际容器解析，支持启动早期和多窗口；嵌套 ScrollView 优先消费未到顶部的下拉手势
-- 重复调用 `dismissAnimated` 时，所有 completion 都会等真实关闭结束；容器可用性随挂载和窗口显隐实时更新
-- 修复 App 非活跃状态调用 `presentPanModal` 时反复递归投递的问题，改为激活后单次恢复
-- 修复 Popup 重复入队、reject 静默排队、替换被 delegate 拦截后失管等队列一致性问题
-- Popup 多次复用时完整清理动画 transform、观察者、定时器、手势和背景点击 target
-- 键盘避让按实际遮挡面积计算，并补齐容器选择策略、圆角和阴影配置
-- 配置校验覆盖 `NaN` / infinity、尺寸比例、安全边距和等待时间
-- 新增队列、键盘布局、配置校验、自动防连点和 Popup 复用回归测试
+### 新增
+
+- 优先级管理器新增线程安全状态快照 `snapshot()`、单项取消 `cancelWaitingPopup(_:)` 和等待队列清理 `clearWaitingQueue()`
+- 新增 Queue 暂停/恢复、等待超时释放、双展示槽精确替换等完整 Demo；示例目录扩充至 64 个可运行场景
+- `.tfyPopupPriorityDidChange` 现在会在最高优先级变化时发送，并通过 `userInfo` 提供变化前后的优先级
+- 优先级和策略枚举支持 `CaseIterable`，便于配置页与调试工具生成完整选项
+
+### 优化
+
+- 优先级调度改为原子状态转换，并发请求严格遵守 `maxSimultaneousPopups` 与总容量限制
+- Queue 按“优先级优先、同级 FIFO”调度；高优先级只替换一个最低优先级且允许替换的弹窗
+- 等待超时改用单调时钟；过期、取消和清理后立即释放弹窗与回调，避免定时任务延长生命周期
+- Popup 展示使用深拷贝配置快照，避免调用方复用配置对象时影响已经提交的展示请求
+- 容器自动发现优先选择前台最上层控制器并排除弹窗自身；启停与发现间隔修改立即生效
+- BottomSheet 根据实际容器解析高度，并改善嵌套 ScrollView 的下拉手势分配
+- 键盘避让按真实遮挡面积计算，完善容器选择、圆角、阴影和非法数值校验
+
+### 修复
+
+- 修复重复入队、Reject 静默排队、替换后失管、并发取消重复成功和等待项取消后仍执行 `showBlock` 的问题
+- 修复占用优先级展示槽但主线程尚未开始展示时，取消请求未触发 `onDiscard` 的生命周期缺口
+- 修复重复调用 `dismissAnimated` 时 completion 提前返回，以及 Popup 复用时动画、观察者、定时器和手势状态残留
+- 修复 PanModal 生命周期、手势和自定义指示器回调只走协议默认实现的问题，支持控制器和纯 View 子类正确覆写
+- 修复 App 非活跃时调用 `presentPanModal` 产生重复递归投递的问题
+- 完善 Reduce Motion、VoiceOver 背景语义、动态系统颜色和内容控制器快速显隐时的生命周期平衡
+
+### 验证
+
+- 62 项单元测试全部通过，其中包含 28 项优先级专项测试
+- 并发请求和并发取消用例通过 Thread Sanitizer
+- iOS Simulator Demo 构建与 Xcode 静态分析通过
 
 ## 1.1.1 更新说明（控制器 Popup）
 
@@ -579,7 +626,7 @@ TFYSwiftPanModel/                   # SPM target 根目录（≈53 个库源文�
 | 项目 | 要求 |
 |------|------|
 | iOS | 15.0+ |
-| Swift | 5.0+ |
+| Swift | 5.9+ |
 | Xcode | 15.0+ |
 | 依赖 | 无第三方依赖 |
 
@@ -596,6 +643,8 @@ xcodebuild -project TFYSwiftPanModelKit.xcodeproj \
   -destination 'generic/platform=iOS Simulator' \
   CODE_SIGNING_ALLOWED=NO build
 ```
+
+要运行单元测试，请在 Xcode 中打开根目录的 `Package.swift`，选择 iOS Simulator 后执行 **Product → Test**。
 
 ---
 

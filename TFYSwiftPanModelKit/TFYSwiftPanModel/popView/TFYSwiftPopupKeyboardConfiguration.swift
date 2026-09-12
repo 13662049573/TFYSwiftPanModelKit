@@ -47,27 +47,27 @@ public final class TFYSwiftPopupKeyboardConfiguration: NSObject, NSCopying {
 // MARK: - Chain
 
 public extension TFYSwiftPopupKeyboardConfiguration {
-    @discardableResult public func isEnabled(_ value: Bool) -> Self {
+    @discardableResult func isEnabled(_ value: Bool) -> Self {
         isEnabled = value
         return self
     }
 
-    @discardableResult public func avoidingMode(_ value: TFYPopupKeyboardAvoidingMode) -> Self {
+    @discardableResult func avoidingMode(_ value: TFYPopupKeyboardAvoidingMode) -> Self {
         avoidingMode = value
         return self
     }
 
-    @discardableResult public func additionalOffset(_ value: CGFloat) -> Self {
+    @discardableResult func additionalOffset(_ value: CGFloat) -> Self {
         additionalOffset = value
         return self
     }
 
-    @discardableResult public func animationDuration(_ value: TimeInterval) -> Self {
+    @discardableResult func animationDuration(_ value: TimeInterval) -> Self {
         animationDuration = value
         return self
     }
 
-    @discardableResult public func respectSafeArea(_ value: Bool) -> Self {
+    @discardableResult func respectSafeArea(_ value: Bool) -> Self {
         respectSafeArea = value
         return self
     }

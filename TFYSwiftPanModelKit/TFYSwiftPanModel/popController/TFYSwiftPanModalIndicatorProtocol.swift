@@ -8,7 +8,7 @@
 import UIKit
 
 /// 拖拽指示器状态
-public enum TFYIndicatorState: UInt {
+@objc public enum TFYIndicatorState: UInt {
     case normal = 0
     case pullDown
 }
@@ -22,7 +22,7 @@ public enum PanModalIndicatorConstants {
 public let kIndicatorYOffset: CGFloat = PanModalIndicatorConstants.yOffset
 
 /// 拖拽指示器协议，支持自定义 UI 和状态切换
-public protocol TFYSwiftPanModalIndicatorProtocol: AnyObject {
+@objc public protocol TFYSwiftPanModalIndicatorProtocol: AnyObject {
     /// 状态变更回调
     func didChange(to state: TFYIndicatorState)
     /// 指示器尺寸

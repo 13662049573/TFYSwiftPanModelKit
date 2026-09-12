@@ -1,7 +1,7 @@
 Pod::Spec.new do |spec|
 
   spec.name         = "TFYSwiftPanModelKit"
-  spec.version      = "1.1.2"
+  spec.version      = "1.2.0"
   spec.summary      = "纯 Swift 弹窗库：PanModal 半屏 + PopupView 动画弹窗 + presentPopup 控制器弹出"
 
   spec.description  = <<-DESC
@@ -32,7 +32,7 @@ Pod::Spec.new do |spec|
   spec.author       = { "田风有" => "420144542@qq.com" }
 
   spec.platform     = :ios, "15.0"
-  spec.swift_version = "5.0"
+  spec.swift_version = "5.9"
 
   spec.source       = { :git => "https://github.com/13662049573/TFYSwiftPanModelKit.git", :tag => "#{spec.version}" }
 

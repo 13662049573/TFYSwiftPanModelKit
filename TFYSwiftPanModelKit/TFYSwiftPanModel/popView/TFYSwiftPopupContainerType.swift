@@ -32,9 +32,9 @@ public final class TFYSwiftPopupContainerInfo: NSObject {
     /// 实时状态，避免注册后因窗口切换而保留过期快照。
     public var isAvailable: Bool {
         guard let containerView else { return false }
-        if let window = containerView as? UIWindow { return !window.isHidden }
+        if let window = containerView as? UIWindow { return !window.isHidden && window.alpha > 0 }
         guard let window = containerView.window else { return false }
-        return !window.isHidden
+        return !containerView.isHidden && containerView.alpha > 0 && !window.isHidden && window.alpha > 0
     }
     public let priority: Int
 

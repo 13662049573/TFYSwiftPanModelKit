@@ -23,9 +23,23 @@ public extension Notification.Name {
 public final class TFYSwiftPopupContainerManager: NSObject {
     public static let shared = TFYSwiftPopupContainerManager()
 
-    public var enableAutoDiscovery = true
+    public var enableAutoDiscovery = true {
+        didSet {
+            guard enableAutoDiscovery != oldValue else { return }
+            updateAutoDiscoveryState()
+        }
+    }
     /// 自动发现间隔；默认更长以降低 CPU，展示时会主动刷新
-    public var discoveryInterval: TimeInterval = 30.0
+    public var discoveryInterval: TimeInterval = 30.0 {
+        didSet {
+            guard discoveryInterval.isFinite, discoveryInterval > 0 else {
+                discoveryInterval = oldValue
+                return
+            }
+            guard discoveryInterval != oldValue, enableAutoDiscovery else { return }
+            restartAutoDiscovery()
+        }
+    }
     public var enableContainerChangeNotifications = true
     public var enableDebugMode = false
 
@@ -140,6 +154,7 @@ public final class TFYSwiftPopupContainerManager: NSObject {
     public func unregisterCustomContainer(_ containerInfo: TFYSwiftPopupContainerInfo) {
         stateLock.lock()
         customContainers.removeAll { $0 === containerInfo }
+        discoveredContainers.removeAll { $0 === containerInfo }
         stateLock.unlock()
         if enableContainerChangeNotifications {
             DispatchQueue.main.async {
@@ -149,10 +164,11 @@ public final class TFYSwiftPopupContainerManager: NSObject {
     }
 
     public func isContainerAvailable(_ containerInfo: TFYSwiftPopupContainerInfo) -> Bool {
-        guard let cv = containerInfo.containerView, cv.window != nil else { return false }
+        guard containerInfo.isAvailable else { return false }
         stateLock.lock()
         defer { stateLock.unlock() }
-        return discoveredContainers.contains { $0.containerView === cv }
+        return discoveredContainers.contains { $0 === containerInfo || $0.containerView === containerInfo.containerView }
+            || customContainers.contains { $0 === containerInfo }
     }
 
     public func refreshContainerStates() {
@@ -196,9 +212,23 @@ public final class TFYSwiftPopupContainerManager: NSObject {
 
     private func discoverWindowContainers() -> [TFYSwiftPopupContainerInfo] {
         var containers: [TFYSwiftPopupContainerInfo] = []
-        for scene in UIApplication.shared.connectedScenes {
-            guard let windowScene = scene as? UIWindowScene, windowScene.activationState == .foregroundActive else { continue }
-            for window in windowScene.windows where !window.isHidden && window.windowLevel.rawValue >= UIWindow.Level.normal.rawValue {
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive }
+            .sorted { lhs, rhs in
+                let lhsHasKey = lhs.windows.contains(where: \.isKeyWindow)
+                let rhsHasKey = rhs.windows.contains(where: \.isKeyWindow)
+                return lhsHasKey && !rhsHasKey
+            }
+        for windowScene in scenes {
+            let windows = windowScene.windows
+                .filter { !$0.isHidden && $0.alpha > 0 && $0.windowLevel.rawValue >= UIWindow.Level.normal.rawValue }
+                .sorted { lhs, rhs in
+                    if lhs.isKeyWindow != rhs.isKeyWindow { return lhs.isKeyWindow }
+                    return abs(lhs.windowLevel.rawValue - UIWindow.Level.normal.rawValue)
+                        < abs(rhs.windowLevel.rawValue - UIWindow.Level.normal.rawValue)
+                }
+            for window in windows {
                 containers.append(TFYSwiftPopupContainerInfo.windowContainer(window))
             }
         }
@@ -213,23 +243,43 @@ public final class TFYSwiftPopupContainerManager: NSObject {
         if let keyWindow = TFYSwiftWindowHelper.activeWindow, let root = keyWindow.rootViewController {
             addViewControllerContainers(root, to: &containers)
         }
-        return containers
+        var seen = Set<ObjectIdentifier>()
+        return containers.filter { info in
+            guard let view = info.containerView else { return false }
+            return seen.insert(ObjectIdentifier(view)).inserted
+        }
     }
 
     private func addViewControllerContainers(_ viewController: UIViewController?, to containers: inout [TFYSwiftPopupContainerInfo]) {
-        guard let vc = viewController, vc.isViewLoaded, vc.view != nil else { return }
+        guard let vc = viewController else { return }
+        // Front-most content comes first so "prefer current view controller"
+        // does not accidentally select the root controller behind it.
+        if let presented = vc.presentedViewController, !presented.isBeingDismissed {
+            addViewControllerContainers(presented, to: &containers)
+        }
+        if let navigation = vc as? UINavigationController {
+            addViewControllerContainers(navigation.visibleViewController, to: &containers)
+        } else if let tab = vc as? UITabBarController {
+            addViewControllerContainers(tab.selectedViewController, to: &containers)
+        } else if let split = vc as? UISplitViewController {
+            addViewControllerContainers(split.viewControllers.last, to: &containers)
+        }
+        guard vc.isViewLoaded, vc.view != nil else { return }
         if let info = TFYSwiftPopupContainerInfo.viewControllerContainer(vc) {
             containers.append(info)
         }
-        for child in vc.children { addViewControllerContainers(child, to: &containers) }
-        if let presented = vc.presentedViewController { addViewControllerContainers(presented, to: &containers) }
+        for child in vc.children.reversed() { addViewControllerContainers(child, to: &containers) }
     }
 
     private func discoverViewContainers() -> [TFYSwiftPopupContainerInfo] {
         var containers: [TFYSwiftPopupContainerInfo] = []
         if let keyWindow = TFYSwiftWindowHelper.activeWindow {
             // 仅扫描 window 的直接子视图一层 + 根 VC view，避免全树递归
-            for subview in keyWindow.subviews where subview.bounds.width > 100 && subview.bounds.height > 100 && !subview.isHidden {
+            for subview in keyWindow.subviews where subview.bounds.width > 100
+                && subview.bounds.height > 100
+                && !subview.isHidden
+                && !(subview is TFYSwiftPopupView)
+                && !(subview is TFYSwiftPopupBackgroundView) {
                 let name = "View_\(Unmanaged.passUnretained(subview).toOpaque())_\(type(of: subview))"
                 containers.append(TFYSwiftPopupContainerInfo.viewContainer(subview, name: name))
             }
@@ -238,20 +288,42 @@ public final class TFYSwiftPopupContainerManager: NSObject {
     }
 
     private func startAutoDiscovery() {
-        guard enableAutoDiscovery, discoveryTimer == nil else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let timer = Timer(timeInterval: self.discoveryInterval, repeats: true) { [weak self] _ in
-                self?.refreshContainerStates()
-            }
-            self.discoveryTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.startAutoDiscovery() }
+            return
         }
+        guard enableAutoDiscovery, discoveryTimer == nil else { return }
+        let timer = Timer(timeInterval: discoveryInterval, repeats: true) { [weak self] _ in
+            self?.refreshContainerStates()
+        }
+        discoveryTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func stopAutoDiscovery() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.stopAutoDiscovery() }
+            return
+        }
         discoveryTimer?.invalidate()
         discoveryTimer = nil
+    }
+
+    private func restartAutoDiscovery() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.restartAutoDiscovery() }
+            return
+        }
+        stopAutoDiscovery()
+        startAutoDiscovery()
+    }
+
+    private func updateAutoDiscoveryState() {
+        if enableAutoDiscovery {
+            startAutoDiscovery()
+        } else {
+            stopAutoDiscovery()
+        }
     }
 
     private func setupApplicationStateObservers() {

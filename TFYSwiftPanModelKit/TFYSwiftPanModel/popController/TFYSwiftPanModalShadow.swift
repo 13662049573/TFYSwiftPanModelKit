@@ -34,22 +34,22 @@ public final class TFYSwiftPanModalShadow: NSObject {
 // MARK: - Chain
 
 public extension TFYSwiftPanModalShadow {
-    @discardableResult public func shadowColor(_ value: UIColor) -> Self {
+    @discardableResult func shadowColor(_ value: UIColor) -> Self {
         shadowColor = value
         return self
     }
 
-    @discardableResult public func shadowRadius(_ value: CGFloat) -> Self {
+    @discardableResult func shadowRadius(_ value: CGFloat) -> Self {
         shadowRadius = value
         return self
     }
 
-    @discardableResult public func shadowOffset(_ value: CGSize) -> Self {
+    @discardableResult func shadowOffset(_ value: CGSize) -> Self {
         shadowOffset = value
         return self
     }
 
-    @discardableResult public func shadowOpacity(_ value: CGFloat) -> Self {
+    @discardableResult func shadowOpacity(_ value: CGFloat) -> Self {
         shadowOpacity = value
         return self
     }

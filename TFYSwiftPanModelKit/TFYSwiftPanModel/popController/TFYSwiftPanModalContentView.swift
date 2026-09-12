@@ -8,7 +8,7 @@
 import UIKit
 
 /// PanModal 弹窗内容视图，支持独立 present/dismiss，遵循 Presentable 与布局协议
-public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresentable, TFYSwiftPanModalPanGestureDelegate, TFYSwiftPanModalPresentationUpdateProtocol, TFYSwiftPanModalPresentableLayoutProtocol {
+open class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresentable, TFYSwiftPanModalPanGestureDelegate, TFYSwiftPanModalPresentationUpdateProtocol, TFYSwiftPanModalPresentableLayoutProtocol {
 
     private weak var _containerView: TFYSwiftPanModalContainerView?
     /// 从 superview 链查找或直接引用
@@ -22,33 +22,33 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
         return nil
     }
 
-    public var topLayoutOffset: CGFloat { 0 }
-    public var bottomLayoutOffset: CGFloat {
+    open var topLayoutOffset: CGFloat { 0 }
+    open var bottomLayoutOffset: CGFloat {
         TFYSwiftWindowHelper.safeAreaInsets.bottom
     }
 
-    public var shortFormYPos: CGFloat {
+    open var shortFormYPos: CGFloat {
         let shortY = topMarginFromPanModalHeight(shortFormHeight()) + topOffset()
         return max(shortY, longFormYPos)
     }
 
-    public var mediumFormYPos: CGFloat {
+    open var mediumFormYPos: CGFloat {
         let mediumY = topMarginFromPanModalHeight(mediumFormHeight()) + topOffset()
         return max(mediumY, longFormYPos)
     }
 
-    public var longFormYPos: CGFloat {
+    open var longFormYPos: CGFloat {
         let h1 = topMarginFromPanModalHeight(longFormHeight())
         let h2 = topMarginFromPanModalHeight(PanModalHeight(type: .max, height: 0))
         return max(h1, h2) + topOffset()
     }
 
-    public var bottomYPos: CGFloat {
+    open var bottomYPos: CGFloat {
         if let cv = containerView { return cv.bounds.height - topOffset() }
         return bounds.height
     }
 
-    public func topMarginFromPanModalHeight(_ panModalHeight: PanModalHeight) -> CGFloat {
+    open func topMarginFromPanModalHeight(_ panModalHeight: PanModalHeight) -> CGFloat {
         TFYSwiftPanModalLayoutHelper.topMargin(
             for: panModalHeight,
             bottomYPos: bottomYPos,
@@ -106,11 +106,22 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
     public func panModalDismissAnimated(animated: Bool, completion: (() -> Void)?) { dismiss(animated: animated, completion: completion) }
 
     // MARK: - TFYSwiftPanModalPresentable 默认实现
-    public func panScrollable() -> UIScrollView? { nil }
-    public func topOffset() -> CGFloat { topLayoutOffset + 21 }
-    public func shortFormHeight() -> PanModalHeight { longFormHeight() }
-    public func mediumFormHeight() -> PanModalHeight { longFormHeight() }
-    public func longFormHeight() -> PanModalHeight {
+    open func panScrollable() -> UIScrollView? { nil }
+    open func isPanScrollEnabled() -> Bool { true }
+    open func scrollIndicatorInsets() -> UIEdgeInsets {
+        UIEdgeInsets(top: shouldRoundTopCorners() ? cornerRadius() : 0, left: 0, bottom: bottomLayoutOffset, right: 0)
+    }
+    open func showsScrollableVerticalScrollIndicator() -> Bool { true }
+    open func shouldAutoSetPanScrollContentInset() -> Bool { true }
+    open func allowsExtendedPanScrolling() -> Bool {
+        guard let scroll = panScrollable(), scroll.superview != nil, scroll.window != nil else { return false }
+        scroll.layoutIfNeeded()
+        return scroll.contentSize.height > scroll.frame.height - bottomLayoutOffset
+    }
+    open func topOffset() -> CGFloat { topLayoutOffset + 21 }
+    open func shortFormHeight() -> PanModalHeight { longFormHeight() }
+    open func mediumFormHeight() -> PanModalHeight { longFormHeight() }
+    open func longFormHeight() -> PanModalHeight {
         if let scroll = panScrollable() {
             scroll.layoutIfNeeded()
             let h = max(scroll.contentSize.height, scroll.bounds.height)
@@ -118,16 +129,59 @@ public final class TFYSwiftPanModalContentView: UIView, TFYSwiftPanModalPresenta
         }
         return PanModalHeight(type: .max, height: 0)
     }
-    public func originPresentationState() -> PresentationState { .short }
-    public func backgroundConfig() -> TFYSwiftBackgroundConfig { TFYSwiftBackgroundConfig.config(behavior: .default) }
-    public func contentShadow() -> TFYSwiftPanModalShadow { .none }
+    open func originPresentationState() -> PresentationState { .short }
+    open func springDamping() -> CGFloat { 0.8 }
+    open func transitionDuration() -> TimeInterval { 0.5 }
+    open func dismissalDuration() -> TimeInterval { transitionDuration() }
+    open func transitionAnimationOptions() -> UIView.AnimationOptions { [.curveEaseInOut, .allowUserInteraction, .beginFromCurrentState] }
+    open func shouldEnableAppearanceTransition() -> Bool { true }
+    open func backgroundConfig() -> TFYSwiftBackgroundConfig { TFYSwiftBackgroundConfig.config(behavior: .default) }
+    open func anchorModalToLongForm() -> Bool { true }
+    open func allowsTapBackgroundToDismiss() -> Bool { true }
+    open func allowsDragToDismiss() -> Bool { true }
+    open func allowsPullDownWhenShortState() -> Bool { true }
+    open func minVerticalVelocityToTriggerDismiss() -> CGFloat { 300 }
+    open func isUserInteractionEnabled() -> Bool { true }
+    open func isHapticFeedbackEnabled() -> Bool { true }
+    open func allowsTouchEventsPassingThroughTransitionView() -> Bool { false }
+    open func allowScreenEdgeInteractive() -> Bool { false }
+    open func maxAllowedDistanceToLeftScreenEdgeForPanInteraction() -> CGFloat { 0 }
+    open func minHorizontalVelocityToTriggerScreenEdgeDismiss() -> CGFloat { 500 }
+    open func presentingVCAnimationStyle() -> PresentingViewControllerAnimationStyle { .none }
+    open func customPresentingVCAnimation() -> TFYPresentingViewControllerAnimatedTransitioning? { nil }
+    open func shouldRoundTopCorners() -> Bool { true }
+    open func cornerRadius() -> CGFloat { 8 }
+    open func contentShadow() -> TFYSwiftPanModalShadow { .none }
+    open func showDragIndicator() -> Bool { !allowsTouchEventsPassingThroughTransitionView() }
+    open func customIndicatorView() -> (UIView & TFYSwiftPanModalIndicatorProtocol)? { nil }
+    open func isAutoHandleKeyboardEnabled() -> Bool { true }
+    open func keyboardOffsetFromInputView() -> CGFloat { 5 }
+    open func shouldPreventFrequentTapping() -> Bool { true }
+    open func frequentTapPreventionInterval() -> TimeInterval { 1 }
+    open func shouldShowFrequentTapPreventionHint() -> Bool { false }
+    open func frequentTapPreventionHintText() -> String? { "请稍后再试" }
+    open func panModalFrequentTapPreventionStateChanged(isPrevented: Bool, remainingTime: TimeInterval) {}
+    open func shouldRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) -> Bool { true }
+    open func willRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    open func didRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    open func didEndRespondToPanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) {}
+    open func shouldPrioritizePanModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer) -> Bool { false }
+    open func panModalGestureRecognizer(_ panGestureRecognizer: UIPanGestureRecognizer, dismissPercent: CGFloat) {}
+    open func shouldTransition(to state: PresentationState) -> Bool { true }
+    open func willTransition(to state: PresentationState) {}
+    open func didChangeTransition(to state: PresentationState) {}
+    open func panModalTransitionWillBegin() {}
+    open func panModalTransitionDidFinish() {}
+    open func presentedViewDidMoveToSuperView() {}
+    open func panModalWillDismiss() {}
+    open func panModalDidDismiss() {}
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
+    public required init?(coder: NSCoder) {
+        super.init(coder: coder)
     }
 
     deinit {
