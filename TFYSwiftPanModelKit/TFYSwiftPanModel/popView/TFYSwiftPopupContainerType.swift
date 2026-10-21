@@ -190,7 +190,7 @@ public final class TFYSwiftDefaultPopupContainerSelector: NSObject, TFYSwiftPopu
             case .custom: score += 25
             }
         }
-        if let w = container.containerView?.window, w.isKeyWindow { score += 30 }
+        if let w = container.containerView?.window, TFYSwiftWindowHelper.isKeyWindow(w) { score += 30 }
         if container.containerView?.window?.windowLevel == UIWindow.Level.normal { score += 20 }
         if let v = container.containerView {
             let area = v.bounds.width * v.bounds.height

@@ -216,15 +216,17 @@ public final class TFYSwiftPopupContainerManager: NSObject {
             .compactMap { $0 as? UIWindowScene }
             .filter { $0.activationState == .foregroundActive }
             .sorted { lhs, rhs in
-                let lhsHasKey = lhs.windows.contains(where: \.isKeyWindow)
-                let rhsHasKey = rhs.windows.contains(where: \.isKeyWindow)
+                let lhsHasKey = lhs.keyWindow != nil
+                let rhsHasKey = rhs.keyWindow != nil
                 return lhsHasKey && !rhsHasKey
             }
         for windowScene in scenes {
             let windows = windowScene.windows
                 .filter { !$0.isHidden && $0.alpha > 0 && $0.windowLevel.rawValue >= UIWindow.Level.normal.rawValue }
                 .sorted { lhs, rhs in
-                    if lhs.isKeyWindow != rhs.isKeyWindow { return lhs.isKeyWindow }
+                    let lhsIsKey = TFYSwiftWindowHelper.isKeyWindow(lhs)
+                    let rhsIsKey = TFYSwiftWindowHelper.isKeyWindow(rhs)
+                    if lhsIsKey != rhsIsKey { return lhsIsKey }
                     return abs(lhs.windowLevel.rawValue - UIWindow.Level.normal.rawValue)
                         < abs(rhs.windowLevel.rawValue - UIWindow.Level.normal.rawValue)
                 }

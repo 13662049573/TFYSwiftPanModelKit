@@ -1,11 +1,11 @@
 Pod::Spec.new do |spec|
 
   spec.name         = "TFYSwiftPanModelKit"
-  spec.version      = "1.2.0"
+  spec.version      = "1.3.0"
   spec.summary      = "纯 Swift 弹窗库：PanModal 半屏 + PopupView 动画弹窗 + presentPopup 控制器弹出"
 
   spec.description  = <<-DESC
-    TFYSwiftPanModelKit 是无第三方依赖的纯 Swift iOS 弹窗组件库（iOS 15+）。
+    TFYSwiftPanModelKit 是无第三方依赖的纯 Swift iOS 弹窗组件库（iOS 16+）。
 
     架构分三层（可按 CocoaPods subspec 按需引入，彼此关系见下）：
     • Tools — 窗口/安全区、KVO、UIView/UIScrollView 辅助、触感反馈
@@ -31,7 +31,7 @@ Pod::Spec.new do |spec|
   spec.license      = { :type => "MIT", :file => "LICENSE" }
   spec.author       = { "田风有" => "420144542@qq.com" }
 
-  spec.platform     = :ios, "15.0"
+  spec.platform     = :ios, "16.0"
   spec.swift_version = "5.9"
 
   spec.source       = { :git => "https://github.com/13662049573/TFYSwiftPanModelKit.git", :tag => "#{spec.version}" }

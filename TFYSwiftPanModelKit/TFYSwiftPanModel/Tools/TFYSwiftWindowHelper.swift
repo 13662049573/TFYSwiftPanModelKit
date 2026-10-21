@@ -9,15 +9,20 @@ import UIKit
 
 public enum TFYSwiftWindowHelper {
 
+    /// Whether `window` is the key window for its scene (uses `UIWindowScene.keyWindow`, not deprecated `UIWindow.isKeyWindow`).
+    public static func isKeyWindow(_ window: UIWindow) -> Bool {
+        guard let scene = window.windowScene else { return false }
+        return scene.keyWindow === window
+    }
+
     /// 当前活跃的 key window（带回退）
     public static var activeWindow: UIWindow? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        if let key = scenes.first(where: { $0.activationState == .foregroundActive })?
-            .windows.first(where: { $0.isKeyWindow }) {
+        if let key = scenes.first(where: { $0.activationState == .foregroundActive })?.keyWindow {
             return key
         }
         for scene in scenes {
-            if let window = scene.windows.first(where: { $0.isKeyWindow }) { return window }
+            if let window = scene.keyWindow { return window }
             if let window = scene.windows.first(where: { !$0.isHidden }) { return window }
         }
         return nil
