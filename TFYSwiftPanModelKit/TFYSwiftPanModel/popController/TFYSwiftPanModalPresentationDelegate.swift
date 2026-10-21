@@ -54,10 +54,27 @@ public final class TFYSwiftPanModalPresentationDelegate: NSObject,
     }
 
     // MARK: - UIAdaptivePresentationControllerDelegate
+
+    /// Prevents iPad popover / system sheet from adapting PanModal into a full-screen cover.
     public func adaptivePresentationStyle(
         for controller: UIPresentationController,
         traitCollection: UITraitCollection
     ) -> UIModalPresentationStyle {
         .none
+    }
+
+    public func adaptivePresentationStyle(for controller: UIPresentationController) -> UIModalPresentationStyle {
+        .none
+    }
+
+    // MARK: - UIPopoverPresentationControllerDelegate
+
+    public func popoverPresentationControllerShouldDismissPopover(
+        _ popoverPresentationController: UIPopoverPresentationController
+    ) -> Bool {
+        guard let presented = popoverPresentationController.presentedViewController as? TFYSwiftPanModalPresentable else {
+            return true
+        }
+        return presented.allowsDragToDismiss()
     }
 }

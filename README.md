@@ -2,11 +2,11 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Swift-5.9-orange.svg" alt="Swift 5.9"/>
-  <img src="https://img.shields.io/badge/iOS-15.0%2B-blue.svg" alt="iOS 15.0+"/>
+  <img src="https://img.shields.io/badge/iOS-16.0%2B-blue.svg" alt="iOS 16.0+"/>
   <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT"/>
   <img src="https://img.shields.io/badge/SPM-compatible-brightgreen.svg" alt="SPM"/>
   <img src="https://img.shields.io/badge/CocoaPods-compatible-red.svg" alt="CocoaPods"/>
-  <img src="https://img.shields.io/badge/version-1.2.0-brightgreen.svg" alt="version"/>
+  <img src="https://img.shields.io/badge/version-1.3.0-brightgreen.svg" alt="version"/>
 </p>
 
 <p align="center">
@@ -118,7 +118,7 @@ https://github.com/13662049573/TFYSwiftPanModelKit.git
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.2.0")
+    .package(url: "https://github.com/13662049573/TFYSwiftPanModelKit.git", from: "1.3.0")
 ]
 ```
 
@@ -489,7 +489,7 @@ let background = TFYSwiftBackgroundConfig.config(behavior: .customBlurEffect)
 
 ## 运行完整 Demo
 
-打开根目录下的 `TFYSwiftPanModelKit.xcodeproj`，选择 `TFYSwiftPanModelKit` Scheme 和任意 iOS 15+ 模拟器运行。Demo 提供可搜索的 **64 个真实场景**，覆盖：
+打开根目录下的 `TFYSwiftPanModelKit.xcodeproj`，选择 `TFYSwiftPanModelKit` Scheme 和任意 iOS 16+ 模拟器运行。Demo 提供可搜索的 **64 个真实场景**，覆盖：
 
 - PanModal 的三段高度、滚动联动、纯 UIView、自定义指示器、生命周期、键盘与边缘手势
 - PopupView 的 12 种动画、6 种布局、BottomSheet、拖拽/滑动关闭和自动关闭
@@ -569,6 +569,19 @@ TFYSwiftPanModel/                   # SPM target 根目录（≈53 个库源文�
 
 ---
 
+## 1.3.0 更新说明（iOS 16 最低版本）
+
+### 变更
+
+- 最低部署目标从 iOS 15.0 提升至 **iOS 16.0**（SPM、`podspec`、Xcode 工程、文档一致）
+- 窗口发现改用 `UIWindowScene.keyWindow`，移除对已废弃 `UIWindow.isKeyWindow` 的依赖
+- iPad PanModal popover 路径：`UIPopoverPresentationControllerDelegate` 与 `allowsDragToDismiss()` 对齐，禁止拖拽关闭时同步拒绝 popover 系统 dismiss
+
+### 迁移
+
+- 集成方需将 App 的 `IPHONEOS_DEPLOYMENT_TARGET` 调整为 16.0 及以上
+- 1.2.x 在 iOS 15 上的行为未在本分支继续维护；请使用 1.2.0 tag 如需 iOS 15 支持
+
 ## 1.2.0 更新说明（优先级与稳定性升级）
 
 ### 新增
@@ -625,7 +638,7 @@ TFYSwiftPanModel/                   # SPM target 根目录（≈53 个库源文�
 
 | 项目 | 要求 |
 |------|------|
-| iOS | 15.0+ |
+| iOS | 16.0+ |
 | Swift | 5.9+ |
 | Xcode | 15.0+ |
 | 依赖 | 无第三方依赖 |
@@ -636,7 +649,7 @@ TFYSwiftPanModel/                   # SPM target 根目录（≈53 个库源文�
 
 ```bash
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
-swift build --build-tests --sdk "$SDK" --triple arm64-apple-ios15.0-simulator
+swift build --build-tests --sdk "$SDK" --triple arm64-apple-ios16.0-simulator
 xcodebuild -project TFYSwiftPanModelKit.xcodeproj \
   -scheme TFYSwiftPanModelKit \
   -sdk iphonesimulator \
